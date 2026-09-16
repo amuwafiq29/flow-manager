@@ -258,13 +258,17 @@ async fn call<R: Runtime>(
         .await
         .map_err(|_| "Server Unavailable".to_string())?;
     let code = r.status();
+    // PENTING: body error ({error:...}) TIDAK punya field status/plan/lifetime,
+    // jadi parse ServerResponse di sini akan selalu gagal. Parse terpisah.
+    if !code.is_success() {
+        let err_body: serde_json::Value = r.json().await.unwrap_or_default();
+        let err_code = err_body.get("error").and_then(|e| e.as_str());
+        return Err(map_error(err_code, code.as_u16()));
+    }
     let d: ServerResponse = r
         .json()
         .await
         .map_err(|_| "Server Unavailable".to_string())?;
-    if !code.is_success() {
-        return Err(map_error(d.error.as_deref(), code.as_u16()));
-    }
     verify_response(&d, &nonce)?;
     Ok(d)
 }
