@@ -111,6 +111,9 @@ export default function App() {
   const [licenseState, setLicenseState] = useState<LicenseState | null>(null)
   const [deviceId, setDeviceId] = useState("")
   const [key, setKey] = useState("")
+  const [newKey, setNewKey] = useState("")
+  const [activatingNew, setActivatingNew] = useState(false)
+  const [activateNewError, setActivateNewError] = useState("")
   const [serverPlans, setServerPlans] = useState<ServerPlan[] | null>(null)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [accountsLoaded, setAccountsLoaded] = useState(false)
@@ -422,6 +425,19 @@ export default function App() {
       await invoke("expand_main_window"); await w.show(); await w.setFocus(); return
     } catch (error) { setLicenseError(typeof error === "string" ? error : "Server Unavailable") } finally { setLicenseChecking(false) }
   }
+  const activateNewKey = async () => {
+    if (!newKey.trim()) { setActivateNewError("Enter your new key."); return }
+    setActivatingNew(true); setActivateNewError("")
+    try {
+      const updated = await invoke<LicenseState>("activate_license", { licenseKey: newKey.trim() })
+      setLicenseState(updated)
+      setNewKey("")
+    } catch (error) {
+      setActivateNewError(typeof error === "string" ? error : "Server Unavailable")
+    } finally {
+      setActivatingNew(false)
+    }
+  }
   const fetchPlans = async () => {
     try {
       const base = await invoke<string>("get_license_server_url")
@@ -653,6 +669,11 @@ export default function App() {
             licenseState={licenseState}
             plans={serverPlans}
             onBuy={() => void openLicensePurchase()}
+            newKey={newKey}
+            setNewKey={(v) => { setNewKey(v); setActivateNewError("") }}
+            activating={activatingNew}
+            activateError={activateNewError}
+            onActivateNew={() => void activateNewKey()}
           />
         ) : view === "updates" ? (
           <UpdatesPage />
@@ -899,10 +920,15 @@ function SidebarIcon({ name }: { name: "accounts" | "favorites" | "license" | "u
   }
   return <svg className="sidebar-icon" {...common}>{paths[name]}</svg>
 }
-function LicensePage({ licenseState, plans, onBuy }: {
+function LicensePage({ licenseState, plans, onBuy, newKey, setNewKey, activating, activateError, onActivateNew }: {
   licenseState: LicenseState | null
   plans: ServerPlan[] | null
   onBuy: () => void
+  newKey: string
+  setNewKey: (v: string) => void
+  activating: boolean
+  activateError: string
+  onActivateNew: () => void
 }) {
   const idr = (n: number) => "Rp" + Number(n || 0).toLocaleString("id-ID")
   const visible = (plans || []).filter((p) => p.active !== false).sort((a, b) => (a.sort || 0) - (b.sort || 0))
@@ -933,11 +959,25 @@ function LicensePage({ licenseState, plans, onBuy }: {
       {canTopup && (
         <section className="license-info topup-section">
           <div className="eyebrow">RENEWAL</div>
-          <h2>How renewal works</h2>
-          <p>Buy a new key and activate it on this device — any remaining time carries over automatically, then the old key is retired permanently. Each key is single-use.</p>
-          <button className="primary" onClick={onBuy}>
-            Buy New Key
-          </button>
+          <h2>Activate a new key</h2>
+          <p>Bought a new key? Activate it here — any remaining time carries over automatically, then the old key is retired permanently. Each key is single-use.</p>
+          <div className="topup-row">
+            <input
+              value={newKey}
+              onChange={(e) => setNewKey(e.target.value)}
+              placeholder="Enter your new key"
+              onKeyDown={(e) => { if (e.key === "Enter") onActivateNew() }}
+            />
+            <button className="primary" onClick={onActivateNew} disabled={activating}>
+              {activating ? "Activating…" : "Activate"}
+            </button>
+          </div>
+          {activateError && <p className="dialog-error">{activateError}</p>}
+          <p style={{ marginTop: 12 }}>
+            <button className="secondary" onClick={onBuy}>
+              Buy New Key
+            </button>
+          </p>
         </section>
       )}
       <section className="license-info">
