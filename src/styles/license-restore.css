@@ -1,0 +1,10 @@
+/* FlowManager light license gate */
+.gate{background:var(--gate-bg);display:block;min-height:100vh;padding:24px}
+.gate-card{width:100%;max-width:480px;min-height:auto;margin:6vh auto;padding:40px 36px;background:var(--card);border:1px solid var(--border);border-radius:24px;box-shadow:0 10px 30px rgba(37,99,235,.12);display:flex;flex-direction:column;justify-content:center}
+.gate .brand{margin:0 0 28px;position:static}
+.gate h1{font-size:28px;font-weight:800;margin:12px 0;color:var(--text)}
+.gate p{font-size:14px;margin:0 0 24px;color:var(--muted)}
+.gate input{height:50px;font-size:14px}
+.gate .wide{margin-top:16px}
+.gate .link{font-size:14px;margin:22px auto 28px}
+.gate small{font-size:11px;line-height:1.6;color:var(--faint)}

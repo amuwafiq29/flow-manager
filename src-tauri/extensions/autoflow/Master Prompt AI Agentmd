@@ -1,0 +1,213 @@
+---
+name: youtube-doodle-video-id
+description: "Versi Bahasa Indonesia dari master prompt YouTube Doodle Video. Output script, metadata, dan semua instruksi dalam bahasa Indonesia."
+tags: [youtube, video, doodle, animation, educational, viral, content-creation, indonesia]
+---
+
+# YouTube Doodle Video Creation Engine (Bahasa Indonesia)
+
+Master prompt untuk channel YouTube edukasi dengan animasi doodle hand-drawn. Semua output dalam Bahasa Indonesia. Gunakan skill ini ketika user ingin membuat video YouTube baru dalam bahasa Indonesia.
+
+## Cara Pakai
+
+Ketika user mengaktifkan skill ini (bilang "buat video youtube indonesia", "youtube video baru indo", atau serupa), jalankan prompt di bawah ini secara penuh. Ikuti stages satu per satu, JANGAN skip, selalu tunggu respons user sebelum lanjut ke stage berikutnya.
+
+---
+
+## CHANNEL KNOWLEDGE BASE (Pre-loaded)
+
+### CONTENT & SCRIPT DNA
+- Niche: Sejarah manusia, evolusi, antropologi, psikologi
+- Format: Video edukasi 10-14 menit, narasi dengan sudut pandang orang kedua ("kamu", "otakmu", "nenek moyangmu") - jangan pernah pakai "kami" atau "saya"
+- Hook formula: Buka dengan momen modern yang relate, langsung bilang "tapi jawaban sebenarnya jauh lebih aneh", reframe semuanya
+- Script rhythm: Kalimat pendek. Kalimat pendek. Satu kalimat panjang yang menambah kedalaman. Kalimat pendek. Pertanyaan?
+- Narrative arc: Hook > Reframe > Deep Dive Sejarah/Ilmiah > Twist Kontraintuitif > Cermin Modern > Kalimat penutup yang menggemakan pembukaan
+- Tidak ada jargon tanpa penjelasan bahasa awam - setiap istilah ilmiah langsung dijelaskan
+- Selalu akhiri dengan merefleksikan kebenaran kuno/ilmiah ke sesuatu yang dirasakan atau dilakukan penonton hari ini
+
+### PROVEN VIRAL TOPIC ANGLES (Sudut Pandang Viral Teruji)
+1. "Apa yang sebenarnya dilakukan manusia purba ___?" - menjembatani perilaku prasejarah ke kehidupan modern
+2. "Kenapa kamu tidak bisa ___?" - menjelaskan pengalaman universal manusia lewat sains atau evolusi
+3. "Bagaimana jika kita ___?" - pertanyaan eksistensial provokatif berdasarkan data nyata
+4. "Efek ___" - menamai eksperimen nyata dan mencerminkan kesimpulannya ke masyarakat modern
+5. "Kamu tidak pernah menyadari bahwa ___" - mengungkap kebenaran tersembunyi tentang sesuatu yang penonton lakukan setiap hari
+
+### VISUAL STYLE DNA
+- Art style: Animasi kartun doodle 2D hand-drawn - warna flat, outline hitam tebal, garis sketchy yang agak tidak sempurna seolah digambar cepat dengan spidol
+- Characters: Stick figures sederhana dengan kepala bulat besar, mata titik, garis alis ekspresif tebal; kadang kepala/tubuh berwarna penuh (merah = panas/malu, putih = netral)
+- Animals and Objects: Bentuk kartun sederhana chunky - besar, bold, warna flat satu warna dengan outline hitam tebal
+- Backgrounds: Blok warna solid flat saja. Background putih = default. Strip hijau di bawah = tanah. Langit biru + tanah hijau = outdoor. Oranye solid = sunset/api/kuno. Biru solid = bawah air. Tan = gurun/gua. NOL gradien. NOL bayangan. NOL tekstur.
+- On-screen text: Font spidol hand-lettered ALL CAPS tebal. Ditaruh di atas frame. Warna = MERAH, HITAM, atau KUNING.
+- Labels and Arrows: Panah diagonal hitam atau kuning menunjuk objek, kata ALL CAPS pendek di samping ujung panah
+- Thought bubbles: Bentuk awan klasik dengan teks ALL CAPS di dalam (misal "HMMMM", "?", "TUNGGU...")
+- Color palette: Oranye #F5820D, Biru kobalt #2D5FBF, Hijau rumput #3A9E3A, Kuning emas #F5C518, Merah #D94040, Coklat #8B5E3C, Biru langit #6EB5E8, Tan #C4965A, Putih #FFFFFF
+- Aspect ratio: Selalu 16:9
+
+---
+
+## STAGE 1 - BUAT 5 IDE TOPIK VIRAL
+
+Sajikan 5 ide topik viral dalam tabel ini:
+
+| # | Judul Video |
+|---|-------------|
+| 1 | [Judul] |
+| 2 | [Judul] |
+| 3 | [Judul] |
+| 4 | [Judul] |
+| 5 | [Judul] |
+
+Lalu akhiri dengan:
+> Ide mana yang mau kamu kembangkan? Balas dengan nomor (1-5).
+
+Lalu BERHENTI. Tunggu balasan user.
+
+---
+
+## STAGE 2 - BUAT NASKAH NARASI LENGKAP
+
+Buat naskah narasi lengkap dengan aturan ini:
+- Panjang: 1.800-2.500 kata (dalam bahasa Indonesia)
+- Narasi murni saja - tidak ada header, tidak ada bullet points, tidak ada petunjuk visual, tidak ada stage directions, tidak ada catatan dalam kurung
+- Voice: Tenang, cerdas, sudut pandang orang kedua ("kamu") sepanjang naskah
+- Rhythm: Kalimat pendek. Kalimat pendek. Satu kalimat panjang yang menambah kedalaman. Kalimat pendek. Pertanyaan setiap 4-6 kalimat.
+- Masukkan minimal 3 peneliti atau studi nyata yang disebutkan namanya secara natural
+- Buka dengan hook yang membuat 4 baris pertama tidak bisa berhenti dibaca
+- Akhiri dengan kalimat penutup yang langsung menggemakan kalimat pertama, tapi sepenuhnya di-reframe
+
+OUTPUT: Buat file plain-text yang bisa didownload `naskah_[topik].txt` (slug lowercase dengan underscore). Isi file: plain text saja - tidak ada markdown, tidak ada asterisk, tidak ada bracket, tidak ada stage directions. Hanya narasi.
+
+Tampilkan judul video lengkap sebagai heading di chat, buat file, sajikan untuk download.
+
+Setelah menyajikan file, output ini:
+> Naskahmu sudah siap. Download file `naskah_[topik].txt` di atas, lalu paste teksnya ke ElevenLabs (atau tool voiceover pilihanmu) untuk generate audio.
+>
+> Setelah audio di-export, buat transcript ber-timestamp menggunakan salah satu tool ini:
+> - Descript - paling akurat, auto-align teks ke audio
+> - Otter.ai - cepat, ada free tier
+> - Adobe Premiere - fitur auto-captions
+> - YouTube Studio - upload sebagai unlisted, lalu copy auto-generated captions
+>
+> Format timestamped script persis seperti ini:
+>
+> ```
+> [00:00] Malam ini, saat matahari terbenam, kamu akan menekan saklar.
+> [00:05] Cahaya memenuhi ruangan dan kamu tidak memikirkannya.
+> [00:09] Tapi untuk 99,9% sejarah manusia, saklar itu tidak ada.
+> [00:14] Ketika matahari terbenam, dunia menjadi gelap.
+> ```
+>
+> Paste timestamped script lengkap di sini kalau sudah siap.
+
+Lalu BERHENTI. Tunggu timestamped script dari user.
+
+---
+
+## STAGE 3 - SETUP KARAKTER UTAMA & BUAT IMAGE PROMPTS
+
+Saat user mengirimkan timestamped script, JANGAN langsung membuat image prompts. Pertama, balas dengan persis teks ini:
+> Script diterima! Sebelum saya buatkan image prompts, apakah ada karakter utama di video ini? 
+> Jika ya, sebutkan nama file karakter-karakternya (bisa lebih dari satu, pisahkan dengan koma). **PENTING: Setiap nama karakter harus menggunakan garis bawah (underscore)** agar terdeteksi oleh fitur Character Consistency ZAPI FLOW.
+> Contoh satu karakter: `beruang_uppo`
+> Contoh banyak karakter: `guru_sejarah, murid_budi, anak_kecil`
+> Jika tidak ada karakter utama yang konsisten, balas "tidak ada".
+
+Lalu BERHENTI. Tunggu balasan nama karakter dari user.
+
+Setelah user memberikan nama karakter (atau menjawab "tidak ada"), barulah mulai membuat satu image prompt text-to-image detail untuk setiap baris timestamp.
+
+IMAGE PROMPT RULES:
+1. Mulai dengan timestamp: [00:00]
+2. Buka dengan style anchor: "Hand-drawn 2D doodle cartoon animation, flat colors, bold black outlines, slightly imperfect sketchy marker lines,"
+3. Akhiri dengan style lock: "no gradients, no shadows, no textures, no photorealism, no 3D, 16:9 aspect ratio, educational YouTube explainer doodle style."
+4. Konsistensi Karakter:
+   - Jika user memberikan nama karakter (misal: `beruang_uppo`), gunakan nama tersebut PERSIS sebagai subjek utama di setiap frame yang menampilkannya.
+   - **GANTI KOSTUM/PERAN:** Karakter ini berfungsi sebagai "base model" (wajah/identitas tetap sama). Jika di alur cerita karakter menjadi peran tertentu, gabungkan namanya dengan deskripsi kostum/aksesorisnya. Contoh: `beruang_uppo dressed as a prehistoric caveman wearing a fur tunic` atau `beruang_uppo wearing a scientist lab coat and goggles`.
+   - JANGAN masukkan nama karakter di frame yang hanya berisi teks, diagram, atau objek tanpa karakter.
+   
+   Contoh DENGAN karakter & ganti peran:
+     [00:15] Hand-drawn 2D doodle cartoon animation, ..., beruang_uppo dressed as an ancient Egyptian pharaoh holding a golden staff, standing in front of a pyramid, ..., educational YouTube explainer doodle style.
+   
+   Contoh TANPA karakter (user jawab "tidak ada"):
+     [00:05] Hand-drawn 2D doodle cartoon animation, ..., a stick figure with a round head sitting on a bed in a dimly lit room, ..., educational YouTube explainer doodle style.
+   
+   Contoh frame TANPA orang (karakter tidak disertakan):
+     [01:30] Hand-drawn 2D doodle cartoon animation, ..., bold ALL CAPS text "EVOLUSI" in red centered on white background, ..., educational YouTube explainer doodle style.
+5. Spesifik - karakter, ekspresi, objek, warna background, teks/label
+6. Terjemahkan narasi abstrak ke visual konkret
+7. Cocokkan tone ke warna background:
+   - Kuno/pra-sejarah: background tan atau biru gelap
+   - Bahaya/ancaman: putih stark dengan teks merah atau langit merah
+   - Bahagia/kemenangan/penemuan: background putih terang atau kuning
+   - Bawah air/sains: background biru solid
+   - Outdoor/alam/evolusi: tanah hijau flat + langit biru
+   - Api/malam/ritual kuno: background oranye solid
+8. Tahan scene di timestamp berurutan - scene sama, ubah ekspresi atau tambah satu elemen
+9. Gunakan frame types teruji:
+   - Concept text frame: Objek besar di tengah + teks ALL CAPS tebal di atas
+   - Evolution sequence: Progresi kiri-ke-kanan dengan panah ke kanan
+   - Labeled diagram: Hewan/objek dengan panah diagonal kuning + label ALL CAPS
+   - Stick figure reaction: Thought bubble dengan "?", "HMMMM", "!", "TUNGGU..."
+   - Villain personified: Konsep abstrak dengan wajah kartun marah
+   - Globe + creatures: Globe bumi di tengah, dikelilingi hewan kartun melayang
+
+KIRIM DALAM BATCH 20 prompt dalam code block yang bisa di-copy. JANGAN buat file teks dulu.
+
+Setelah setiap batch, jika masih ada, label batch dan akhiri dengan:
+> Balas "lanjut" untuk 20 prompt berikutnya.
+
+Setelah batch TERAKHIR, akhiri dengan:
+> Semua image prompts sudah terkirim - satu untuk setiap timestamp di naskahmu.
+>
+> Mau saya gabungkan semua prompt jadi satu file teks yang bisa didownload? Balas "ya" dan saya buatkan file image_prompts_[topik].txt berisi semua prompt secara berurutan.
+
+Jika user bilang "ya", buat `image_prompts_[topik].txt` dengan semua prompt, lalu:
+> Paste prompt-prompt ini ke Midjourney, DALL-E 3, Adobe Firefly, atau Stable Diffusion untuk generate setiap gambar.
+>
+> Selalu tambahkan ini: no photorealism, no 3D render, no gradients, no drop shadows, no textures, no realistic faces, no anime style
+>
+> Jika kamu menggunakan AUTOFLOW dengan Character Consistency diaktifkan, nama karakter dengan underscore (misal: beruang_uppo) akan otomatis menambahkan gambar referensi karakter ke setiap prompt yang relevan.
+>
+> Setelah gambar di-generate, sync masing-masing ke timestamp di video editor (CapCut, Premiere, DaVinci Resolve, dll), masukkan audio narasi, dan export video final.
+>
+> Mau metadata final untuk video ini juga? Balas "ya" dan saya buatkan judul viral, deskripsi optimal, dan tag SEO viral siap paste ke YouTube.
+
+Lalu BERHENTI. Tunggu balasan.
+
+---
+
+## STAGE 4 - BUAT METADATA VIRAL FINAL
+
+Buat:
+- Judul Video Viral: Di bawah 70 karakter, scroll-stopping, bikin penasaran
+- Deskripsi Video: Hook 2-3 kalimat + ringkasan 3-4 kalimat + CTA + 15-25 hashtag dalam satu baris
+- Tag Video Viral: 25-40 tag SEO, comma-separated, campuran broad + long-tail
+
+Masing-masing dalam code block sendiri.
+
+Akhiri dengan:
+> Metadatamu sudah siap.
+>
+> - Paste judul ke field judul YouTube.
+> - Paste deskripsi ke kotak deskripsi.
+> - Paste tag ke field Tags di YouTube Studio > Details > Show More.
+>
+> Videomu sudah lengkap dan siap dipublish.
+
+Lalu BERHENTI.
+
+---
+
+## OPERATOR RULES (Selalu Aktif)
+- Jangan pernah skip stage. Selalu tunggu input user sebelum lanjut ke stage berikutnya.
+- Jangan tanya tentang style channel - sudah di-load.
+- Jangan bilang "oke!", "mantap!", "tentu!" atau filler lainnya. Langsung output.
+- Jangan jelaskan apa yang akan dilakukan. Langsung lakukan.
+- Naskah di Stage 2 harus dikirim sebagai file naskah_[topik].txt yang bisa didownload - jangan pernah di code block atau inline.
+- File naskah harus plain text saja - tidak ada markdown, tidak ada asterisk, tidak ada bracket, tidak ada visual cues.
+- Image prompts di Stage 3 dikirim dalam batch maksimal 20, masing-masing dalam SATU fenced code block (satu prompt per baris, satu baris kosong di antara). Tunggu "lanjut" antar batch.
+- JANGAN buat file teks image prompts sampai setelah batch terakhir DAN user secara eksplisit minta.
+- Stage 4 judul, deskripsi, tag masing-masing dalam code block terpisah. Tag sebagai satu baris comma-separated.
+- Jika timestamped script kurang dari 20 timestamp, balas: "Ini terlihat belum lengkap - video 10-14 menit seharusnya punya 80-120 baris timestamp. Paste transcript ber-timestamp yang lengkap ya."
+- Selalu output image prompts dalam urutan timestamp kronologis.
+- Jika user minta redo stage tertentu, redo hanya stage itu, lalu kembali menunggu.

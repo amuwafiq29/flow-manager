@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowManager Admin</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="login-view" class="login-wrap" hidden>
+    <form id="login-form" class="card login-card">
+      <h1>FlowManager Admin</h1>
+      <p>Masuk untuk mengelola lisensi.</p>
+      <label>Username<input id="login-user" autocomplete="username" /></label>
+      <label>Password<input id="login-pass" type="password" autocomplete="current-password" /></label>
+      <p id="login-error" class="error" hidden></p>
+      <button class="primary" type="submit">Masuk</button>
+    </form>
+  </div>
+
+  <div id="app-view" hidden>
+    <header class="topbar">
+      <b>FlowManager Admin</b>
+      <nav>
+        <button data-tab="keys" class="tab active">Licenses</button>
+        <button data-tab="plans" class="tab">Plans</button>
+      </nav>
+      <span class="spacer"></span>
+      <span id="admin-user"></span>
+      <button id="logout-btn" class="secondary sm">Keluar</button>
+    </header>
+
+    <main>
+      <section id="tab-keys">
+        <div id="stats" class="stats"></div>
+        <div class="toolbar">
+          <input id="search" placeholder="Cari key / nama / telegram…" />
+          <select id="filter-plan"><option value="">Semua plan</option></select>
+          <select id="filter-status">
+            <option value="">Semua status</option>
+            <option value="active">Active</option>
+            <option value="expiring">Expiring ≤7d</option>
+            <option value="expired">Expired (revivable)</option>
+            <option value="dead">Dead</option>
+            <option value="revoked">Revoked</option>
+            <option value="lifetime">Lifetime</option>
+            <option value="consumed">Consumed</option>
+          </select>
+          <span class="spacer"></span>
+          <button id="generate-btn" class="primary">+ Generate Key</button>
+        </div>
+        <table class="table">
+          <thead><tr>
+            <th>Key</th><th>Buyer</th><th>Plan</th><th>Status</th><th>Expires</th><th>Device</th><th>Aksi</th>
+          </tr></thead>
+          <tbody id="license-rows"></tbody>
+        </table>
+      </section>
+
+      <section id="tab-plans" hidden>
+        <p class="hint">Harga tampil di app. Coret tampil hanya jika harga coret &gt; harga. Plan ber-key-aktif tak bisa dihapus (nonaktifkan saja).</p>
+        <table class="table">
+          <thead><tr><th>ID</th><th>Nama</th><th>Harga</th><th>Coret</th><th>Deskripsi</th><th>Aktif</th><th></th></tr></thead>
+          <tbody id="plan-rows"></tbody>
+        </table>
+        <div class="toolbar">
+          <button id="plan-add" class="secondary">+ Tambah plan</button>
+          <span class="spacer"></span>
+          <button id="plan-save" class="primary">Simpan plans</button>
+        </div>
+        <div id="plan-preview" class="plan-preview"></div>
+      </section>
+    </main>
+
+    <div id="drawer" class="drawer" hidden>
+      <div class="drawer-card">
+        <button id="drawer-close" class="secondary sm">Tutup</button>
+        <h2 id="drawer-title"></h2>
+        <div id="drawer-body"></div>
+        <div class="drawer-actions">
+          <button id="act-copy" class="secondary sm">Copy key</button>
+          <button id="act-renew" class="primary sm">Renew…</button>
+          <button id="act-reset" class="secondary sm">Reset device</button>
+          <button id="act-revoke" class="danger sm">Revoke</button>
+        </div>
+        <h3>History</h3>
+        <ul id="drawer-history" class="history"></ul>
+      </div>
+    </div>
+
+    <div id="modal" class="drawer" hidden>
+      <div class="drawer-card">
+        <h2 id="modal-title"></h2>
+        <div id="modal-body"></div>
+        <div class="drawer-actions">
+          <button id="modal-cancel" class="secondary">Batal</button>
+          <button id="modal-ok" class="primary">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

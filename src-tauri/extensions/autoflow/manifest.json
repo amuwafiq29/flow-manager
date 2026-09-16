@@ -1,0 +1,52 @@
+{
+   "action": {
+      "default_icon": {
+         "128": "icons/icon-128.png",
+         "16": "icons/icon-16.png",
+         "32": "icons/icon-32.png",
+         "48": "icons/icon-48.png"
+      },
+      "default_title": "AUTOFLOW"
+   },
+   "background": {
+      "service_worker": "background/service-worker.js"
+   },
+    "content_scripts": [ {
+       "js": [ "selectors.js", "content.js" ],
+       "matches": [
+          "https://labs.google/*",
+          "https://*.labs.google/*",
+          "https://flow.google/*",
+          "https://*.flow.google/*",
+          "https://flow.google.com/*",
+          "https://*.flow.google.com/*"
+       ],
+       "run_at": "document_idle",
+       "all_frames": false
+    } ],
+    "description": "Queue prompts for bulk image generation on Google Flow (flow.google / labs.google/fx/tools/flow).",
+    "host_permissions": [
+       "https://labs.google/*",
+       "https://*.labs.google/*",
+       "https://flow.google/*",
+       "https://*.flow.google/*",
+       "https://flow.google.com/*",
+       "https://*.flow.google.com/*"
+    ],
+   "icons": {
+      "128": "icons/icon-128.png",
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt7FmKPvUb+g4I6Fs25ynIB3BjxtXTckpz7P/V6oM/bxPbblDISertyE4yXTiTHqI3b9I0pgiW7Ab6MJg/euGJlM1p93zqYMhqrzk6ydVytifCIQoIKu1HkrOZ4wCBOFdl78lZXI1zZSgKkc8gHT2WFrU4hkxpPuAQ0StvCCB0g+MN1/RCpdDezp8XMxtdEvLXkcDoYWmYHFaSIR9xE77VSjNMwk49fGP/KwYo/QOPKNqDyHnf6Vn6o30nwH1uuVP4R5C/mMZXksr1D5gbEdRwpn/ny8Sbt/KHBiiRPJ6LPt6aarbXBJWSJVXiqsZZ5E2WlXhFf6Gm29b5g4fgbEyIQIDAQAB",
+   "manifest_version": 3,
+   "minimum_chrome_version": "114",
+    "name": "AUTOFLOW",
+    "permissions": [ "storage", "sidePanel", "unlimitedStorage", "scripting", "downloads", "tabs" ],
+   "side_panel": {
+      "default_path": "sidepanel/sidepanel.html"
+   },
+    "update_url": "https://clients2.google.com/service/update2/crx",
+    "version": "1.4.1"
+}

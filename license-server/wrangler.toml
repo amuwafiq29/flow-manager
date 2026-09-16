@@ -1,0 +1,18 @@
+name = "flowmanager-license-server"
+main = "worker.js"
+# Ed25519 SubtleCrypto butuh runtime baru; jangan turunkan tanggal ini.
+compatibility_date = "2025-01-01"
+
+# 1) Buat KV:  wrangler kv namespace create LICENSES
+# 2) Paste id di bawah ini, lalu: wrangler deploy
+# [[kv_namespaces]]
+# binding = "LICENSES"
+# id = "PASTE_KV_ID_DISINI"
+
+# 3) Set secrets (jangan taruh di file ini!):
+#   wrangler secret put ADMIN_USER        (via vars biasa juga bisa)
+#   wrangler secret put ADMIN_PASS_HASH   (format salt:hash dari set-admin.js)
+#   wrangler secret put ADMIN_SECRET
+#   wrangler secret put SIGNING_PRIVATE_KEY   (PEM; publiknya ke build app FM_LICENSE_PUBKEY)
+#   Tanpa SIGNING_PRIVATE_KEY -> respons tak bertanda; app produksi menolak.
+#   Tanpa KV -> mode baca-tes saja (binding/device tak persist).

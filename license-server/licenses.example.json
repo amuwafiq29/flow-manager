@@ -1,0 +1,18 @@
+{
+  "FM-DEMO-1234": {
+    "plan": "thirty_days",
+    "status": "active",
+    "lifetime": false,
+    "expiresAt": null,
+    "boundDeviceId": null,
+    "revoked": false
+  },
+  "FM-LIFE-0001": {
+    "plan": "lifetime",
+    "status": "active",
+    "lifetime": true,
+    "expiresAt": null,
+    "boundDeviceId": null,
+    "revoked": false
+  }
+}

@@ -1,0 +1,8 @@
+[
+  { "id": "thirty_days", "name": "30 Days", "price": 25000, "originalPrice": 50000, "description": "FlowManager access for 30 days", "active": true, "sort": 1 },
+  { "id": "one_year", "name": "1 Year", "price": 99000, "originalPrice": 149000, "description": "FlowManager access for 1 year", "active": true, "sort": 2 },
+  { "id": "lifetime", "name": "Lifetime", "price": 149000, "originalPrice": 249000, "description": "FlowManager access with no expiration", "active": true, "sort": 3 },
+  { "id": "seven_days", "name": "7 Days", "price": 15000, "originalPrice": 25000, "description": "FlowManager access for 7 days", "active": false, "sort": 4 },
+  { "id": "one_day", "name": "1 Day", "price": 7000, "originalPrice": 12000, "description": "FlowManager access for 1 day", "active": false, "sort": 5 },
+  { "id": "five_minutes", "name": "5 Minutes", "price": 0, "originalPrice": 0, "description": "Trial access for 5 minutes", "active": false, "sort": 6 }
+]

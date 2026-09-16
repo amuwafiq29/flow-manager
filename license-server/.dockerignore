@@ -1,0 +1,5 @@
+node_modules
+licenses.json
+*.log
+Dockerfile
+.dockerignore

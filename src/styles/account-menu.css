@@ -1,0 +1,10 @@
+.menu-wrap{position:relative}
+.account-menu{position:absolute;right:0;top:30px;z-index:5;width:180px;padding:6px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 30px rgba(15,23,42,.12);text-align:left}
+.account-menu button{display:block;width:100%;padding:9px 10px;background:transparent;border-radius:8px;color:var(--ink);font-size:12px;text-align:left;font-weight:600}
+.account-menu button:hover{background:var(--hover);color:var(--fm-blue)}
+.account-menu .menu-danger{color:#ef4444}
+.menu-rule{height:1px;background:var(--border);margin:5px 0}
+.avatar.large img{width:100%;height:100%;object-fit:contain;border-radius:inherit}
+.avatar.large{background:var(--hover);overflow:hidden}
+.avatar img,.setting-icon img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.avatar.tiny img{object-fit:contain}
