@@ -98,12 +98,41 @@ function genKey(prefix) {
   const seg = () => crypto.randomBytes(2).toString("hex").toUpperCase();
   return `${p}-${seg()}-${seg()}-${seg()}`;
 }
+function parsePrivateKey(raw) {
+  // Tahan terhadap: kutip pembungkus, literal \n, literal \\n, spasi tepi.
+  // TIDAK pernah log isi key — hanya metadata aman bila gagal.
+  let s = String(raw || "").trim();
+  if (s.length >= 2 && ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")))) {
+    s = s.slice(1, -1).trim();
+  }
+  s = s.replace(/\\\\n/g, "\n").replace(/\\n/g, "\n");
+  const b64 = s.split("\n").map((l) => l.trim()).filter((l) => l && !l.includes("BEGIN") && !l.includes("END")).join("");
+  const der = Buffer.from(b64, "base64");
+  if (!der.length) throw new Error("empty key material");
+  return require("crypto").createPrivateKey({ key: der, format: "der", type: "pkcs8" });
+}
+let _signingKey = null;
+let _signingKeyOk = null;
+function signingKey() {
+  if (_signingKeyOk !== null) {
+    if (!_signingKeyOk) throw new Error("signing key unusable (cek format PEM di env)");
+    return _signingKey;
+  }
+  try {
+    _signingKey = parsePrivateKey(SIGNING_PRIVATE_KEY);
+    _signingKeyOk = true;
+    return _signingKey;
+  } catch (e) {
+    _signingKeyOk = false;
+    throw new Error("signing key unusable (cek format PEM di env)");
+  }
+}
 function signPayload(obj) {
   // obj: {status, plan, expiresAt, lifetime, now, nonce}
   if (!SIGNING_PRIVATE_KEY) return null;
   try {
     const msg = [obj.status, obj.plan, obj.expiresAt || "", obj.lifetime ? "1" : "0", String(obj.now), obj.nonce || ""].join("|");
-    const sig = crypto.sign(null, Buffer.from(msg), { key: SIGNING_PRIVATE_KEY.trim(), format: "pem" });
+    const sig = crypto.sign(null, Buffer.from(msg), signingKey());
     return sig.toString("base64");
   } catch (e) {
     console.warn("[license] signing failed:", e.message);
