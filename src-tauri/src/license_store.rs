@@ -31,11 +31,15 @@ fn verifying_key() -> Option<VerifyingKey> {
 
 fn pem_to_der_spki(pem: &str) -> Option<Vec<u8>> {
     use base64::Engine;
-    let body: String = pem
-        .lines()
-        .filter(|l| !l.trim().is_empty() && !l.contains("BEGIN") && !l.contains("END"))
-        .collect();
-    base64::engine::general_purpose::STANDARD.decode(body).ok()
+    // Tahan semua bentuk env: multi-baris, satu baris, spasi tepi.
+    let s = pem
+        .replace("-----BEGIN PUBLIC KEY-----", "")
+        .replace("-----END PUBLIC KEY-----", "");
+    let s: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+    if s.is_empty() {
+        return None;
+    }
+    base64::engine::general_purpose::STANDARD.decode(s).ok()
 }
 
 const CLOCK_SKEW_MS: i64 = 5 * 60 * 1000;
