@@ -19,6 +19,7 @@ type Account = {
   order: number
   provider: ProviderId
   customUrl?: string | null
+  lastOpenedAt?: number | null
 }
 // Provider metadata: Google Flow, Dola, Migoo + ChatGPT, Hailuo (Minimax),
 // Leonardo AI, dan situs custom milik user.
@@ -276,6 +277,7 @@ export default function App() {
       order: accounts.length,
       provider: newAccountProvider,
       customUrl,
+      lastOpenedAt: null,
     }
     setAccounts([...accounts, a])
     setAddAccountOpen(false)
@@ -542,7 +544,14 @@ export default function App() {
             accounts={accounts}
             activeAccountId={active.id}
             onSelectAccount={(account) => {
-              if (account.id !== active.id) setActive(account)
+              if (account.id !== active.id) {
+                // Catat waktu buka: akun naik ke puncak kategorinya di switcher.
+                const now = Date.now()
+                setAccounts((current) =>
+                  current.map((x) => (x.id === account.id ? { ...x, lastOpenedAt: now } : x))
+                )
+                setActive({ ...account, lastOpenedAt: now })
+              }
             }}
           />
         )}
@@ -689,7 +698,11 @@ export default function App() {
                   menuOpen={menu === a.id}
                   onMenu={() => setMenu(menu === a.id ? null : a.id)}
                   onOpen={() => {
-                    setActive(a)
+                    const now = Date.now()
+                    setAccounts((current) =>
+                      current.map((x) => (x.id === a.id ? { ...x, lastOpenedAt: now } : x))
+                    )
+                    setActive({ ...a, lastOpenedAt: now })
                     setView("flow")
                   }}
                   onFavorite={() => handleToggleFavorite(a)}
@@ -824,6 +837,32 @@ function Sidebar({
   onSelectAccount?: (a: Account) => void
 }) {
   const inFlow = view === "flow" && accounts && onSelectAccount
+  const [collapsedCats, setCollapsedCats] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("flowmanager-sidecats") || "{}")
+    } catch {
+      return {}
+    }
+  })
+  const toggleCat = (id: ProviderId) => {
+    setCollapsedCats((current) => {
+      const next = { ...current, [id]: !current[id] }
+      try {
+        localStorage.setItem("flowmanager-sidecats", JSON.stringify(next))
+      } catch { /* abaikan */ }
+      return next
+    })
+  }
+  // Kategori urutan tetap (PROVIDER_IDS); hanya yang berisi akun yang tampil.
+  // Dalam kategori: terakhir dibuka paling atas.
+  const grouped = inFlow
+    ? PROVIDER_IDS.map((pid) => ({
+        pid,
+        items: (accounts as Account[])
+          .filter((a) => normalizeProvider(a.provider) === pid)
+          .sort((x, y) => (y.lastOpenedAt || 0) - (x.lastOpenedAt || 0) || x.order - y.order),
+      })).filter((g) => g.items.length > 0)
+    : []
   return (
     <aside>
       <Brand />
@@ -831,20 +870,40 @@ function Sidebar({
         <>
           <div className="side-label">ACCOUNTS</div>
           <div className="side-accounts" role="listbox" aria-label="Switch account">
-            {accounts.map((a) => (
-              <button
-                key={a.id}
-                role="option"
-                aria-selected={a.id === activeAccountId}
-                className={a.id === activeAccountId ? "side-account selected" : "side-account"}
-                onClick={() => onSelectAccount(a)}
-                title={`Open ${a.name} (${badgeFor(a)})`}
-              >
-                <img src={avatarFor(a)} alt="" />
-                <span className="side-account-name">{a.name}</span>
-                {a.favorite && <span className="side-account-fav">★</span>}
-              </button>
-            ))}
+            {grouped.map((g) => {
+              const meta = PROVIDERS[g.pid]
+              const collapsed = !!collapsedCats[g.pid]
+              return (
+                <div key={g.pid} className="side-cat">
+                  <button
+                    className="side-cat-header"
+                    onClick={() => toggleCat(g.pid)}
+                    aria-expanded={!collapsed}
+                    title={collapsed ? `Tampilkan ${meta.name}` : `Sembunyikan ${meta.name}`}
+                  >
+                    <img src={meta.avatar} alt="" />
+                    <span className="side-cat-name">{meta.short}</span>
+                    <span className="side-cat-count">{g.items.length}</span>
+                    <span className={`side-cat-chevron${collapsed ? " closed" : ""}`}>▾</span>
+                  </button>
+                  {!collapsed &&
+                    g.items.map((a) => (
+                      <button
+                        key={a.id}
+                        role="option"
+                        aria-selected={a.id === activeAccountId}
+                        className={a.id === activeAccountId ? "side-account nested selected" : "side-account nested"}
+                        onClick={() => (onSelectAccount as (a: Account) => void)(a)}
+                        title={`Open ${a.name} (${badgeFor(a)})`}
+                      >
+                        <img src={avatarFor(a)} alt="" />
+                        <span className="side-account-name">{a.name}</span>
+                        {a.favorite && <span className="side-account-fav">★</span>}
+                      </button>
+                    ))}
+                </div>
+              )
+            })}
           </div>
           <div className="rule" />
         </>

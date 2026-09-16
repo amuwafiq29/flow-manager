@@ -10,6 +10,7 @@ export type StoredAccount = {
   order: number
   provider: ProviderId
   customUrl?: string | null
+  lastOpenedAt?: number | null
 }
 const STORAGE_KEY = "flowmanager-accounts"
 const LEGACY_STORAGE_KEY = "flowpilot-accounts"
@@ -34,7 +35,8 @@ function isAccount(value: unknown): value is StoredAccount {
     typeof a.favorite === "boolean" &&
     typeof a.order === "number" &&
     (a.provider === undefined || typeof a.provider === "string") &&
-    (a.customUrl === undefined || a.customUrl === null || typeof a.customUrl === "string")
+    (a.customUrl === undefined || a.customUrl === null || typeof a.customUrl === "string") &&
+    (a.lastOpenedAt === undefined || a.lastOpenedAt === null || typeof a.lastOpenedAt === "number")
   )
 }
 
@@ -44,6 +46,7 @@ function normalize(accounts: StoredAccount[]): StoredAccount[] {
       ...a,
       provider: normalizeProvider(a.provider),
       customUrl: typeof a.customUrl === "string" ? a.customUrl : null,
+      lastOpenedAt: typeof a.lastOpenedAt === "number" ? a.lastOpenedAt : null,
     }))
     .sort((a, b) => a.order - b.order)
 }

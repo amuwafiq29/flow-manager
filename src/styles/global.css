@@ -184,7 +184,17 @@ aside .side-label{padding:14px 14px 5px}
 
 /* List pindah akun di sidebar (mode flow): area HTML murni yang tidak
    pernah tertutup webview native — pengganti dropdown di bar. */
-.side-accounts{display:flex;flex-direction:column;gap:4px;overflow-y:auto;min-height:0;max-height:38vh;padding-right:2px}
+.side-accounts{display:flex;flex-direction:column;gap:6px;overflow-y:auto;min-height:0;max-height:38vh;padding-right:2px}
+/* Kategori provider: header sticky + sub-akun bisa di-collapse. */
+.side-cat{display:flex;flex-direction:column;gap:2px}
+.side-cat-header{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border-radius:10px;background:var(--bg-soft);border:1px solid var(--border);color:var(--text);font-size:11px;font-weight:800;letter-spacing:.02em;position:sticky;top:0;z-index:2;transition:.15s}
+.side-cat-header:hover{border-color:var(--line-blue-2)}
+.side-cat-header img{width:20px;height:20px;flex:none;border-radius:6px;object-fit:cover}
+.side-cat-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.side-cat-count{font-size:10px;font-weight:800;background:var(--hover);color:var(--fm-blue);border-radius:999px;padding:1px 8px;flex:none}
+.side-cat-chevron{font-size:10px;color:var(--faint);flex:none;transition:transform .18s}
+.side-cat-chevron.closed{transform:rotate(-90deg)}
+.side-account.nested{margin-left:14px;width:calc(100% - 14px);border-left:2px solid var(--border);border-radius:0 11px 11px 0}
 .side-account{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:11px;background:transparent;color:var(--ink-2);font-size:12px;font-weight:600;text-align:left;transition:.15s}
 .side-account img{width:26px;height:26px;flex:none;border-radius:50%;object-fit:cover}
 .side-account-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
