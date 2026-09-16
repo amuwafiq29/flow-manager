@@ -231,10 +231,9 @@ fn map_error(code: Option<&str>, http: u16) -> String {
         Some("DEVICE_ALREADY_BOUND") => "Device Mismatch",
         Some("DEVICE_MISMATCH") => "Device Mismatch",
         Some("INVALID_LICENSE") => "Invalid License",
-        Some("TOPUP_KEY_INVALID") => "Top-up Key Invalid",
-        Some("TOPUP_KEY_USED") => "Top-up Key Already Used",
-        Some("ALREADY_LIFETIME") => "Already Lifetime",
         Some("KEY_CONSUMED") => "License Key Already Used",
+        Some("KEY_SUPERSEDED") => "License Key Replaced",
+        Some("ALREADY_LIFETIME_COVERED") => "Device Already Lifetime",
         Some("STALE_REQUEST") => "Request Expired, Try Again",
         _ if http >= 500 => "Server Unavailable",
         _ => "Unexpected Server Response",
@@ -342,27 +341,6 @@ pub async fn validate_license<R: Runtime>(a: AppHandle<R>) -> Result<LicenseStat
             Err(e)
         }
     }
-}
-
-#[tauri::command]
-pub async fn topup_license<R: Runtime>(
-    a: AppHandle<R>,
-    topup_key: String,
-) -> Result<LicenseState, String> {
-    let old_key = entry()?
-        .get_password()
-        .map_err(|_| "Invalid License".to_string())?;
-    let top = topup_key.trim();
-    if top.is_empty() {
-        return Err("Top-up Key Invalid".into());
-    }
-    let d = call(
-        &a,
-        "/license/topup",
-        serde_json::json!({"licenseKey": old_key, "topupKey": top}),
-    )
-    .await?;
-    state(&a, d)
 }
 
 /// Dipanggil sebelum aksi sensitif (mis. open provider). Kill-switch terpusat.

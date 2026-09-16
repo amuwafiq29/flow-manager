@@ -264,10 +264,7 @@ aside .side-label{padding:14px 14px 5px}
 .provider-option:hover{border-color:var(--line-blue-2)}
 .provider-option.selected{border-color:var(--fm-blue2);background:var(--hover);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
 
-/* ===== License gate tabs + topup + expiry banner ===== */
-.gate-tabs{display:flex;gap:8px;margin:0 0 18px}
-.gate-tabs .tab{flex:1;height:40px;border-radius:12px;background:var(--bg-soft);border:1.5px solid var(--border);color:var(--muted);font-size:13px;font-weight:700}
-.gate-tabs .tab.active{background:var(--fm-grad);border-color:transparent;color:#fff;box-shadow:0 6px 14px rgba(37,99,235,.3)}
+/* ===== License expiry banner ===== */
 .expiry-banner{display:flex;align-items:center;gap:12px;background:#fff8e1;border:1px solid #ffe082;color:#7a4b00;border-radius:14px;padding:10px 16px;font-size:12px;font-weight:600;margin-bottom:18px}
 [data-theme="dark"] .expiry-banner{background:#3d2c00;border-color:#7c5a0c;color:#ffd97a}
 .expiry-banner span{flex:1}

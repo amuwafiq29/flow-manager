@@ -1,9 +1,7 @@
-// node run-tests.js — suite verifikasi server lisensi (butuh server jalan)
+// node run-tests.js — suite verifikasi server lisensi model one-time ketat
 const BASE = "http://localhost:8787";
 const ADMIN = "test-admin-token";
 let pass = 0, fail = 0;
-const RID = Date.now().toString(36).toUpperCase().slice(-4);
-
 async function req(method, path, body, headers) {
   const r = await fetch(BASE + path, {
     method,
@@ -18,80 +16,90 @@ function ok(name, cond, extra) {
   if (cond) { pass++; console.log("PASS", name); }
   else { fail++; console.log("FAIL", name, JSON.stringify(extra)); }
 }
+const RID = Date.now().toString(36).toUpperCase().slice(-4);
+const DEV = "dev-" + RID;
+const DEVX = "dev-" + RID + "X";
+const K = (s) => `FM-C${RID}-${s}`;
 (async () => {
-  // 1. plans publik (hanya yang aktif) + seed 6 via admin
+  // plans
   let r = await req("GET", "/plans");
-  ok("plans publik aktif saja", r.status === 200 && r.data.plans.length === 3, r);
+  ok("plans publik aktif", r.status === 200 && r.data.plans.length === 3, r);
   r = await req("GET", "/admin/plans");
   ok("seed 6 plan", r.status === 200 && r.data.plans.length === 6, r.data && r.data.plans.length);
 
-  // 2. buat key test via admin legacy
-  const mk = async (key, plan, extra) => {
-    const b = await req("POST", "/admin/licenses", Object.assign({ key, plan }, extra || {}));
-    return b;
-  };
-  await mk("FM-T"+RID+"-OLD1-0001", "thirty_days");
-  await mk("FM-T"+RID+"-NEW1-0001", "thirty_days");
-  await mk("FM-T"+RID+"-NEW2-0001", "seven_days");
+  const mk = async (key, plan, extra) =>
+    req("POST", "/admin/licenses", Object.assign({ key, plan }, extra || {}));
 
-  // 3. activate OLD
-  r = await req("POST", "/license/activate", { licenseKey: "FM-T"+RID+"-OLD1-0001", deviceId: "dev-A" });
-  ok("activate OLD", r.status === 200 && r.data.plan === "thirty_days" && !!r.data.expiresAt, r);
-  const expOld = r.data.expiresAt;
+  // 1. aktivasi fresh
+  await mk(K("OLD1"), "thirty_days");
+  r = await req("POST", "/license/activate", { licenseKey: K("OLD1"), deviceId: DEV });
+  ok("activate fresh", r.status === 200 && !!r.data.expiresAt && !!r.data.sig, r.data);
+  const expOld = new Date(r.data.expiresAt).getTime();
 
-  // 4. topup OLD + NEW1 (30 hari ditambah dari expiry lama)
-  r = await req("POST", "/license/topup", { licenseKey: "FM-T"+RID+"-OLD1-0001", topupKey: "FM-T"+RID+"-NEW1-0001", deviceId: "dev-A" });
-  const expect = new Date(new Date(expOld).getTime() + 30 * 86400000).toISOString().slice(0, 16);
-  ok("topup stack dari expiry", r.status === 200 && (r.data.expiresAt || "").slice(0, 16) === expect, r.data);
+  // 2. aktivasi ulang key SAMA di device SAMA -> idempoten OK
+  r = await req("POST", "/license/activate", { licenseKey: K("OLD1"), deviceId: DEV });
+  ok("reaktivasi idempoten", r.status === 200, r);
 
-  // 5. NEW1 dipakai lagi -> TOPUP_KEY_USED
-  r = await req("POST", "/license/topup", { licenseKey: "FM-T"+RID+"-OLD1-0001", topupKey: "FM-T"+RID+"-NEW1-0001", deviceId: "dev-A" });
-  ok("topup key bekas ditolak", r.status === 403 && r.data.error === "TOPUP_KEY_USED", r);
-
-  // 6. device beda -> DEVICE_MISMATCH
-  r = await req("POST", "/license/topup", { licenseKey: "FM-T"+RID+"-OLD1-0001", topupKey: "FM-T"+RID+"-NEW2-0001", deviceId: "dev-B" });
-  ok("device mismatch ditolak", r.status === 403 && r.data.error === "DEVICE_MISMATCH", r);
-
-  // 7. expired dalam tenggang (10 hari lalu) -> dari sekarang
-  const past10 = new Date(Date.now() - 10 * 86400000).toISOString();
-  await mk("FM-T"+RID+"-OLD2-0001", "thirty_days", { expiresAt: past10 });
+  // 3. key BARU di device SAMA -> auto-carry sisa + bunuh lama
+  await mk(K("NEW1"), "thirty_days");
   const before = Date.now();
-  r = await req("POST", "/license/topup", { licenseKey: "FM-T"+RID+"-OLD2-0001", topupKey: "FM-T"+RID+"-NEW2-0001", deviceId: "dev-A" });
-  ok("expired-tenggang dari sekarang", r.status === 200 && new Date(r.data.expiresAt).getTime() >= before, r.data);
+  r = await req("POST", "/license/activate", { licenseKey: K("NEW1"), deviceId: DEV });
+  const got = new Date(r.data.expiresAt).getTime();
+  const expectMin = before + 30 * 86400000 + (expOld - before) - 120000;
+  ok("auto-carry sisa (5+30)", r.status === 200 && got >= expectMin, r.data);
 
-  // 8. expired >30 hari -> OLD_KEY_DEAD
-  const past40 = new Date(Date.now() - 40 * 86400000).toISOString();
-  await mk("FM-T"+RID+"-OLD3-0001", "thirty_days", { expiresAt: past40 });
-  await mk("FM-T"+RID+"-NEW3-0001", "thirty_days");
-  r = await req("POST", "/license/topup", { licenseKey: "FM-T"+RID+"-OLD3-0001", topupKey: "FM-T"+RID+"-NEW3-0001", deviceId: "dev-A" });
-  ok("expired-lewat-tenggang mati", r.status === 403 && r.data.error === "OLD_KEY_DEAD", r);
+  // 4. key LAMA mati permanen (validate + activate ditolak)
+  r = await req("POST", "/license/validate", { licenseKey: K("OLD1"), deviceId: DEV });
+  ok("old validate ditolak superseded", r.status === 403 && r.data.error === "KEY_SUPERSEDED", r);
+  r = await req("POST", "/license/activate", { licenseKey: K("OLD1"), deviceId: DEV });
+  ok("old activate ditolak superseded", r.status === 403 && r.data.error === "KEY_SUPERSEDED", r);
 
-  // 9. lifetime + topup -> ALREADY_LIFETIME
-  await mk("FM-T"+RID+"-LIFE-0001", "lifetime");
-  await mk("FM-T"+RID+"-NEW4-0001", "thirty_days");
-  await req("POST", "/license/activate", { licenseKey: "FM-T"+RID+"-LIFE-0001", deviceId: "dev-A" });
-  r = await req("POST", "/license/topup", { licenseKey: "FM-T"+RID+"-LIFE-0001", topupKey: "FM-T"+RID+"-NEW4-0001", deviceId: "dev-A" });
-  ok("lifetime ditolak topup", r.status === 400 && r.data.error === "ALREADY_LIFETIME", r);
+  // 5. key KETIGA: carry tunggal dari yang live (tidak double)
+  await mk(K("NEW2"), "thirty_days");
+  r = await req("POST", "/license/validate", { licenseKey: K("NEW1"), deviceId: DEV });
+  const liveExp = new Date(r.data.expiresAt).getTime();
+  const b2 = Date.now();
+  r = await req("POST", "/license/activate", { licenseKey: K("NEW2"), deviceId: DEV });
+  const g2 = new Date(r.data.expiresAt).getTime();
+  ok("carry tunggal (live+30)", r.status === 200 && g2 >= liveExp + 30 * 86400000 - 120000 && g2 <= liveExp + 30 * 86400000 + 120000 && g2 >= b2, r.data);
 
-  // 10. revoke old -> OLD_KEY_REVOKED
-  await req("PATCH", "/admin/licenses/FM-T"+RID+"-OLD1-0001", { revoked: true });
-  await mk("FM-T"+RID+"-NEW5-0001", "thirty_days");
-  r = await req("POST", "/license/topup", { licenseKey: "FM-T"+RID+"-OLD1-0001", topupKey: "FM-T"+RID+"-NEW5-0001", deviceId: "dev-A" });
-  ok("revoked-old ditolak", r.status === 403 && r.data.error === "OLD_KEY_REVOKED", r);
-  await req("PATCH", "/admin/licenses/FM-T"+RID+"-OLD1-0001", { revoked: false });
+  // 6. expired + key baru -> fresh dari sekarang, tanpa carry
+  const past10 = new Date(Date.now() - 10 * 86400000).toISOString();
+  await mk(K("OLD2"), "thirty_days", { expiresAt: past10 });
+  await mk(K("NEW3"), "thirty_days");
+  r = await req("POST", "/license/activate", { licenseKey: K("NEW3"), deviceId: DEV });
+  ok("expired-old: fresh tanpa carry", r.status === 200, r.data);
 
-  // 11. admin login salah -> 401; stats ok
+  // 7. device lifetime menolak pembelian baru (device khusus lifetime)
+  const DEVL = DEV + "L";
+  await mk(K("LIFE1"), "lifetime");
+  await req("POST", "/license/activate", { licenseKey: K("LIFE1"), deviceId: DEVL });
+  await mk(K("NEW4"), "thirty_days");
+  r = await req("POST", "/license/activate", { licenseKey: K("NEW4"), deviceId: DEVL });
+  ok("lifetime-cover menolak", r.status === 403 && r.data.error === "ALREADY_LIFETIME_COVERED", r);
+
+  // 8. device beda -> mismatch (key khusus terisolasi)
+  await mk(K("MISM1"), "thirty_days");
+  await req("POST", "/license/activate", { licenseKey: K("MISM1"), deviceId: DEV });
+  r = await req("POST", "/license/validate", { licenseKey: K("MISM1"), deviceId: DEVX });
+  ok("mismatch ditolak", r.status === 403 && r.data.error === "DEVICE_ALREADY_BOUND", r);
+
+  // 9. revoked
+  await req("PATCH", `/admin/licenses/${K("NEW2")}`, { revoked: true });
+  r = await req("POST", "/license/validate", { licenseKey: K("NEW2"), deviceId: DEV });
+  ok("revoked ditolak", r.status === 403 && r.data.error === "LICENSE_REVOKED", r);
+  await req("PATCH", `/admin/licenses/${K("NEW2")}`, { revoked: false });
+
+  // 10. admin auth + stats taxonomy baru
   r = await req("GET", "/admin/stats", null, { "X-Admin-Token": "salah" });
   ok("admin tanpa token ditolak", r.status === 401, r);
   r = await req("GET", "/admin/stats");
-  ok("stats ok", r.status === 200 && r.data.stats.total >= 10, r.data && r.data.stats);
+  ok("stats superseded+expired", r.status === 200 && r.data.stats.superseded >= 1 && r.data.stats.expired >= 1, r.data && r.data.stats);
 
-  // 12. renew manual via admin
-  r = await req("POST", "/admin/licenses/FM-T"+RID+"-OLD2-0001/renew", { days: 7 });
-  ok("admin renew ok", r.status === 200 && !!r.data.license.expiresAt, r.data);
-
-  // 13. reset device
-  r = await req("POST", "/admin/licenses/FM-T"+RID+"-OLD2-0001/reset-device", {});
+  // 11. renew + reset
+  r = await req("POST", `/admin/licenses/${K("NEW3")}/renew`, { days: 7 });
+  ok("admin renew ok", r.status === 200, r.data && r.data.error);
+  r = await req("POST", `/admin/licenses/${K("NEW3")}/reset-device`, {});
   ok("reset device ok", r.status === 200 && r.data.license.boundDeviceId === null, r.data);
 
   console.log(`\n${pass} pass, ${fail} fail`);

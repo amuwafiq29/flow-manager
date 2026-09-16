@@ -5,7 +5,7 @@
 //   SIGNING_PRIVATE_KEY (PEM ed25519). Tanpa SIGNING_PRIVATE_KEY -> respons
 //   tak bertanda (sig:null); app produksi yang pin pubkey akan MENOLAK.
 //   Ed25519 via SubtleCrypto butuh compatibility_date baru; lihat wrangler.toml.
-// API: POST /license/activate|validate|topup, GET /plans (publik),
+// API: POST /license/activate|validate, GET /plans (publik),
 //   /admin/* (login/me/stats/licenses/plans) — session via KV (butuh binding).
 // CATATAN race: KV read-modify-write bisa race saat request bersamaan;
 //   traffic kecil = diterima. Jangan pakai LICENSES_JSON untuk produksi
@@ -19,7 +19,6 @@ const PLANS = {
   one_year: 365 * 24 * 60 * 60 * 1000,
   lifetime: null,
 };
-const GRACE_MS = 30 * 86400000;
 const CLOCK_SKEW_MS = 5 * 60 * 1000;
 const SESSION_TTL = 12 * 3600;
 
@@ -66,6 +65,7 @@ function normalize(l) {
   if (typeof l.consumed !== "boolean") l.consumed = false;
   if (!Array.isArray(l.history)) l.history = [];
   if (l.failedAttempts === undefined) l.failedAttempts = 0;
+  if (l.supersededBy === undefined) l.supersededBy = null;
   return l;
 }
 function pushHistory(lic, action, by, detail) {
@@ -255,18 +255,18 @@ export default {
       return needCookie(async () => {
         const all = await listLicenses(env);
         const now = Date.now();
-        const s = { total: 0, active: 0, expiring7d: 0, expiredRevivable: 0, dead: 0, revoked: 0, lifetime: 0, consumed: 0, byPlan: {} };
+        const s = { total: 0, active: 0, expiring7d: 0, expired: 0, revoked: 0, lifetime: 0, consumed: 0, superseded: 0, byPlan: {} };
         for (const lic of all) {
           s.total++;
-          if (lic.consumed) { s.consumed++; continue; }
           if (lic.revoked) { s.revoked++; continue; }
+          if (lic.supersededBy) { s.superseded++; continue; }
+          if (lic.consumed) { s.consumed++; continue; }
           if (lic.lifetime) { s.lifetime++; s.active++; continue; }
           s.byPlan[lic.plan] = (s.byPlan[lic.plan] || 0) + 1;
           if (!lic.expiresAt) continue;
           const exp = new Date(lic.expiresAt).getTime();
           if (exp > now) { s.active++; if (exp - now <= 604800000) s.expiring7d++; }
-          else if (now - exp <= GRACE_MS) s.expiredRevivable++;
-          else s.dead++;
+          else s.expired++;
         }
         return json({ stats: s, now });
       });
@@ -300,71 +300,97 @@ export default {
       });
     }
 
-    // license API
-    if ((url.pathname === "/license/activate" || url.pathname === "/license/validate" || url.pathname === "/license/topup") && request.method === "POST") {
+    // license API (model one-time ketat, sama seperti server.js)
+    if ((url.pathname === "/license/activate" || url.pathname === "/license/validate") && request.method === "POST") {
       const body = await request.json().catch(() => null);
       if (!body) return json({ error: "BAD_JSON" }, 400);
       const licenseKey = String(body.licenseKey || "").trim();
-      const topupKey = String(body.topupKey || "").trim();
       const deviceId = String(body.deviceId || "").trim();
       const nonce = typeof body.nonce === "string" ? body.nonce : null;
       const ts = typeof body.ts === "number" ? body.ts : null;
       if (!licenseKey || !deviceId) return json({ error: "INVALID_LICENSE" }, 401);
       if (nonce && !checkNonce(nonce, ts)) return json({ error: "STALE_REQUEST" }, 401);
       const now = Date.now();
-      const isTopup = url.pathname === "/license/topup";
       const fail = async (lic, code, st) => {
         if (lic) { lic.failedAttempts = (lic.failedAttempts || 0) + 1; lic.lastFailAt = new Date(now).toISOString(); await saveLicense(env, licenseKey, lic); }
         return json({ error: code }, st || 401);
       };
       const lic = await getLicense(env, licenseKey);
       if (!lic) return fail(null, "INVALID_LICENSE");
-      if (!isTopup && lic.revoked) return fail(lic, "LICENSE_REVOKED", 403);
-      if (!isTopup && lic.consumed) return fail(lic, "KEY_CONSUMED", 403);
+      if (lic.revoked) return json({ error: "LICENSE_REVOKED" }, 403);
+      if (lic.consumed) return json({ error: "KEY_CONSUMED" }, 403);
+      if (lic.supersededBy) return json({ error: "KEY_SUPERSEDED" }, 403);
       if (lic.boundDeviceId && lic.boundDeviceId !== deviceId) {
-        return fail(lic, isTopup ? "DEVICE_MISMATCH" : "DEVICE_ALREADY_BOUND", 403);
+        return fail(lic, "DEVICE_ALREADY_BOUND", 403);
       }
       const respond = async () => json(licenseResponse(lic, nonce, await signPayload(env, {
         status: lic.status || "active", plan: lic.plan, expiresAt: lic.expiresAt || null,
         lifetime: !!lic.lifetime, now, nonce,
       }), now));
-      if (isTopup) {
-        if (lic.revoked) return json({ error: "OLD_KEY_REVOKED" }, 403);
-        if (lic.lifetime) return json({ error: "ALREADY_LIFETIME" }, 400);
-        if (!topupKey) return json({ error: "TOPUP_KEY_INVALID" }, 403);
-        const top = await getLicense(env, topupKey);
-        if (!top || top.revoked) return fail(top, "TOPUP_KEY_INVALID", 403);
-        if (top.consumed) return fail(top, "TOPUP_KEY_USED", 403);
-        if (isExpired(lic, now) && now - new Date(lic.expiresAt).getTime() > GRACE_MS) {
-          return json({ error: "OLD_KEY_DEAD" }, 403);
-        }
-        const base = lic.expiresAt ? Math.max(new Date(lic.expiresAt).getTime(), now) : now;
-        if (top.lifetime) { lic.lifetime = true; lic.expiresAt = null; lic.plan = "lifetime"; }
-        else {
-          const ms = PLANS[top.plan];
-          if (ms == null) return fail(top, "TOPUP_KEY_INVALID", 403);
-          lic.expiresAt = new Date(base + ms).toISOString();
-        }
-        lic.status = "active";
-        if (!lic.boundDeviceId) lic.boundDeviceId = deviceId;
-        top.consumed = true; top.consumedBy = licenseKey; top.consumedAt = new Date(now).toISOString();
-        pushHistory(top, "consumed", "system", "topup->" + licenseKey);
-        pushHistory(lic, "topup", "system", `+${top.lifetime ? "lifetime" : top.plan} via ${topupKey}`);
+      if (url.pathname === "/license/validate") {
+        if (isExpired(lic, now)) return fail(lic, "LICENSE_EXPIRED", 403);
         lic.failedAttempts = 0;
-        await saveLicense(env, topupKey, top);
         await saveLicense(env, licenseKey, lic);
         return respond();
       }
-      if (url.pathname === "/license/activate" && !lic.boundDeviceId) {
-        lic.boundDeviceId = deviceId;
-        if (!lic.lifetime && !lic.expiresAt && PLANS[lic.plan] != null) {
-          lic.expiresAt = new Date(now + PLANS[lic.plan]).toISOString();
-        }
-        if (!lic.status) lic.status = "active";
-        pushHistory(lic, "activated", "system", deviceId.slice(0, 8));
+      // activate
+      if (lic.boundDeviceId) {
+        if (isExpired(lic, now)) return fail(lic, "LICENSE_EXPIRED", 403);
+        lic.failedAttempts = 0;
         await saveLicense(env, licenseKey, lic);
+        return respond();
       }
-      if (isExpired(lic, now)) return fail(lic, "LICENSE_EXPIRED", 403);
+      if (lic.expiresAt && new Date(lic.expiresAt).getTime() <= now && !lic.lifetime) {
+        return json({ error: "LICENSE_EXPIRED" }, 403);
+      }
+      if (env.LICENSES) {
+        // tolak pembelian sia-sia bila device sudah lifetime (best-effort scan)
+        let cursor = undefined;
+        let covered = false;
+        do {
+          const page = await env.LICENSES.list({ prefix: "license:", cursor });
+          for (const k of page.keys) {
+            const raw = await env.LICENSES.get(k.name);
+            if (!raw) continue;
+            const o = JSON.parse(raw);
+            if (o.lifetime && !o.revoked && !o.consumed && !o.supersededBy && o.boundDeviceId === deviceId) { covered = true; break; }
+          }
+          cursor = page.list_complete ? undefined : page.cursor;
+        } while (cursor && !covered);
+        if (covered) return json({ error: "ALREADY_LIFETIME_COVERED" }, 403);
+      }
+      let carryMs = 0, carryFrom = null;
+      if (env.LICENSES) {
+        const all = await listLicenses(env);
+        for (const o of all) {
+          if (o.key === licenseKey || o.lifetime || o.revoked || o.consumed || o.supersededBy) continue;
+          if (o.boundDeviceId !== deviceId || !o.expiresAt) continue;
+          const remain = new Date(o.expiresAt).getTime() - now;
+          if (remain > carryMs) { carryMs = remain; carryFrom = o.key; }
+        }
+        if (carryFrom) {
+          const old = await getLicense(env, carryFrom);
+          if (old) {
+            old.supersededBy = licenseKey;
+            old.status = "superseded";
+            pushHistory(old, "superseded", "system", `carried ${Math.round(carryMs / 86400000)}d into ${licenseKey}`);
+            await saveLicense(env, carryFrom, old);
+          }
+        }
+      }
+      lic.boundDeviceId = deviceId;
+      if (lic.lifetime) {
+        lic.expiresAt = null;
+      } else if (lic.expiresAt) {
+        lic.expiresAt = new Date(Math.max(new Date(lic.expiresAt).getTime(), now) + carryMs).toISOString();
+      } else {
+        const ms = PLANS[lic.plan];
+        if (ms == null) return fail(lic, "INVALID_LICENSE");
+        lic.expiresAt = new Date(now + ms + carryMs).toISOString();
+      }
+      if (!lic.status || lic.status === "superseded") lic.status = "active";
+      pushHistory(lic, "activated", "system",
+        deviceId.slice(0, 8) + (carryMs > 0 ? ` carry+${Math.round(carryMs / 86400000)}d from ${carryFrom}` : ""));
       lic.failedAttempts = 0;
       await saveLicense(env, licenseKey, lic);
       return respond();

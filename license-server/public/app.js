@@ -33,15 +33,15 @@ const fmtDate = (iso) => {
   const d = new Date(iso);
   return isNaN(d) ? "—" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 };
-const GRACE_MS = 30 * 86400000;
 function statusOf(l, now) {
-  if (l.consumed) return ["consumed", "Consumed", "b-grey"];
   if (l.revoked) return ["revoked", "Revoked", "b-red"];
+  if (l.supersededBy) return ["superseded", "Superseded", "b-grey"];
+  if (l.consumed) return ["consumed", "Consumed", "b-grey"];
   if (l.lifetime) return ["lifetime", "Lifetime", "b-purple"];
   if (!l.expiresAt) return ["active", "Active", "b-green"];
   const exp = new Date(l.expiresAt).getTime();
   if (exp > now) return exp - now <= 7 * 86400000 ? ["expiring", "Expiring ≤7d", "b-yellow"] : ["active", "Active", "b-green"];
-  return now - exp <= GRACE_MS ? ["expired", "Expired (revivable)", "b-yellow"] : ["dead", "Dead", "b-grey"];
+  return ["expired", "Expired", "b-grey"];
 }
 
 let licenses = [];
@@ -91,7 +91,7 @@ async function refreshAll() {
 function renderStats(s) {
   const cards = [
     ["Active", s.active, "b-green"], ["Expiring ≤7d", s.expiring7d, "b-yellow"],
-    ["Revivable", s.expiredRevivable, "b-yellow"], ["Dead", s.dead, "b-grey"],
+    ["Expired", s.expired, "b-grey"], ["Superseded", s.superseded, "b-grey"],
     ["Revoked", s.revoked, "b-red"], ["Lifetime", s.lifetime, "b-purple"],
   ];
   $("stats").innerHTML = cards.map(([l, v]) => `<div class="card"><b>${v}</b><span>${l}</span></div>`).join("");

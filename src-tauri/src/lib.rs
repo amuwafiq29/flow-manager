@@ -198,7 +198,6 @@ pub fn run() {
             license_store::get_license_server_url,
             license_store::activate_license,
             license_store::validate_license,
-            license_store::topup_license,
             license_store::clear_license_state,
             account_store::load_accounts,
             account_store::save_accounts

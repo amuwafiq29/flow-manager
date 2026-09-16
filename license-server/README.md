@@ -55,9 +55,10 @@ Catatan: KV read-modify-write bisa race saat request bersamaan (traffic kecil = 
 ## 3. Operasional harian (dashboard `/admin`)
 
 - **Jualan**: Generate (single/batch) → copy key → kirim ke buyer + template §5. Untuk stok tokotelegram: generate batch 50–100, paste ke produk toko.
-- **Perpanjang**: cari key → Renew (dari sisa, tidak hangus). Key expired ≤30 hari masih bisa top-up sendiri oleh buyer.
-- **Ganti laptop**: Reset device → buyer aktivasi ulang (device baru ke-bind).
-- **Bermasalah**: Revoke (key curian/bocor) — app terkunci dengan pesan. Unrevoke bila salah.
+- **Perpanjang**: buyer beli key BARU → aktivasi di device yang sama → sisa otomatis terbawa, key lama mati permanen. Tidak ada aksi admin yang dibutuhkan.
+- **Goodwill**: bila perlu tambah waktu manual (komplain dsb), pakai Renew di key AKTIF (dari sisa, tidak hangus).
+- **Ganti laptop**: Reset device → buyer aktivasi ulang (device baru ke-bind; key lama di laptop lama ikut mati bila sudah diganti key baru).
+- **Bermasalah**: Revoke (key curian/bocor) — app terkunci dengan pesan. Unrevoke bila salah. Key `superseded`/`consumed`/`expired` = arsip mati, jangan dihidupkan kecuali darurat (edit manual + catat note).
 - **Harga**: tab Plans → ubah → TERCERMIN DI APP OTOMATIS. **Jangan lupa ubah juga harga produk di dashboard tokotelegram** (tidak ada API sinkronisasi).
 
 ## 4. Darurat
@@ -82,15 +83,16 @@ Cara aktivasi:
 Key terikat 1 laptop. Ganti laptop? chat admin + kirim Device ID (Settings > Device).
 ```
 
-**Top-up / perpanjang:**
+**Perpanjang (beli key baru):**
 ```
-Key top-up kamu: FM-YYYY-YYYY-YYYY (+30 hari)
+Key barumu: FM-YYYY-YYYY-YYYY (+30 hari)
 Cara pakai:
-1. Buka app (kalau expired, tetap buka — pilih tab Top-up)
-2. Masukkan key ini di kolom Top-up
-3. Sisa waktumu otomatis ditambah, key ini hangus sekali pakai.
+1. Buka app FlowManager
+2. Paste key ini di layar Enter your license
+3. Klik Activate
 
-Key lamamu tetap yang sama, tidak perlu ganti.
+Sisa waktumu otomatis ditambahkan ke key baru ini.
+Key lamamu langsung mati permanen dan tidak bisa dipakai lagi.
 ```
 
 **Ganti device:**

@@ -21,7 +21,6 @@ const ADMIN_PASS_HASH = process.env.ADMIN_PASS_HASH || "";
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "";
 const SIGNING_PRIVATE_KEY = (process.env.SIGNING_PRIVATE_KEY || "").replace(/\\n/g, "\n");
 
-const GRACE_MS = 30 * 24 * 60 * 60 * 1000; // tenggang top-up setelah expired
 const CLOCK_SKEW_MS = 5 * 60 * 1000;
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -62,6 +61,7 @@ function loadLicenses() {
     if (typeof l.consumed !== "boolean") { l.consumed = false; dirty = true; }
     if (!Array.isArray(l.history)) { l.history = []; dirty = true; }
     if (l.failedAttempts === undefined) { l.failedAttempts = 0; dirty = true; }
+    if (l.supersededBy === undefined) { l.supersededBy = null; dirty = true; }
   }
   if (dirty) saveJson(FILE, map);
   return map;
@@ -321,11 +321,12 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/admin/stats" && req.method === "GET") {
       const map = loadLicenses();
       const now = Date.now();
-      const s = { total: 0, active: 0, expiring7d: 0, expiredRevivable: 0, dead: 0, revoked: 0, lifetime: 0, consumed: 0, byPlan: {} };
+      const s = { total: 0, active: 0, expiring7d: 0, expired: 0, revoked: 0, lifetime: 0, consumed: 0, superseded: 0, byPlan: {} };
       for (const lic of Object.values(map)) {
         s.total++;
-        if (lic.consumed) { s.consumed++; continue; }
         if (lic.revoked) { s.revoked++; continue; }
+        if (lic.supersededBy) { s.superseded++; continue; }
+        if (lic.consumed) { s.consumed++; continue; }
         if (lic.lifetime) { s.lifetime++; s.active++; continue; }
         s.byPlan[lic.plan] = (s.byPlan[lic.plan] || 0) + 1;
         if (!lic.expiresAt) continue;
@@ -333,10 +334,8 @@ const server = http.createServer(async (req, res) => {
         if (exp > now) {
           s.active++;
           if (exp - now <= 7 * 24 * 60 * 60 * 1000) s.expiring7d++;
-        } else if (now - exp <= GRACE_MS) {
-          s.expiredRevivable++;
         } else {
-          s.dead++;
+          s.expired++;
         }
       }
       return send(res, 200, { stats: s, now });
@@ -493,12 +492,16 @@ const server = http.createServer(async (req, res) => {
     return send(res, 404, { error: "NOT_FOUND" });
   }
 
-  // ----- license public API -----
-  if ((url.pathname === "/license/activate" || url.pathname === "/license/validate" || url.pathname === "/license/topup") && req.method === "POST") {
+  // ----- license public API (model one-time ketat) -----
+  // Aturan besi:
+  // - revoked / consumed / superseded / expired: activate + validate DITOLAK permanen.
+  // - Aktivasi fresh: bind device + hitung expiry + auto-carry sisa key lama
+  //   di device yang sama (lalu key lama DIBUNUH seketika).
+  // - Tidak ada lagi endpoint topup / field key lama dari user.
+  if ((url.pathname === "/license/activate" || url.pathname === "/license/validate") && req.method === "POST") {
     const body = await readBody(req);
     if (!body) return send(res, 400, { error: "BAD_JSON" });
     const licenseKey = String(body.licenseKey || "").trim();
-    const topupKey = String(body.topupKey || "").trim();
     const deviceId = String(body.deviceId || "").trim();
     const nonce = typeof body.nonce === "string" ? body.nonce : null;
     const ts = typeof body.ts === "number" ? body.ts : null;
@@ -513,55 +516,72 @@ const server = http.createServer(async (req, res) => {
       return send(res, extraStatus || 401, { error: code });
     };
     if (!lic) return fail("INVALID_LICENSE");
-    const isTopup = url.pathname === "/license/topup";
-    if (!isTopup && lic.revoked) return fail("LICENSE_REVOKED", 403);
-    if (!isTopup && lic.consumed) return fail("KEY_CONSUMED", 403);
+    if (lic.revoked) return send(res, 403, { error: "LICENSE_REVOKED" });
+    if (lic.consumed) return send(res, 403, { error: "KEY_CONSUMED" });
+    if (lic.supersededBy) return send(res, 403, { error: "KEY_SUPERSEDED" });
     if (lic.boundDeviceId && lic.boundDeviceId !== deviceId) {
-      return fail(isTopup ? "DEVICE_MISMATCH" : "DEVICE_ALREADY_BOUND", 403);
+      return fail("DEVICE_ALREADY_BOUND", 403);
     }
 
-    // ----- topup -----
-    if (isTopup) {
-      if (lic.revoked) return send(res, 403, { error: "OLD_KEY_REVOKED" });
-      if (lic.lifetime) return send(res, 400, { error: "ALREADY_LIFETIME" });
-      if (!topupKey) return send(res, 400, { error: "TOPUP_KEY_INVALID" });
-      const top = map[topupKey];
-      if (!top || top.revoked) return fail("TOPUP_KEY_INVALID", 403);
-      if (top.consumed) return fail("TOPUP_KEY_USED", 403);
-      if (isExpired(lic, now) && now - new Date(lic.expiresAt).getTime() > GRACE_MS) {
-        return send(res, 403, { error: "OLD_KEY_DEAD" });
-      }
-      const base = lic.expiresAt ? Math.max(new Date(lic.expiresAt).getTime(), now) : now;
-      if (top.lifetime) {
-        lic.lifetime = true; lic.expiresAt = null; lic.plan = "lifetime";
-      } else {
-        const ms = PLAN_DURATIONS[top.plan];
-        if (ms == null) return fail("TOPUP_KEY_INVALID");
-        lic.expiresAt = new Date(base + ms).toISOString();
-      }
-      lic.status = "active";
-      if (!lic.boundDeviceId) lic.boundDeviceId = deviceId;
-      top.consumed = true; top.consumedBy = licenseKey; top.consumedAt = new Date(now).toISOString();
-      pushHistory(top, "consumed", "system", "topup->" + licenseKey);
-      pushHistory(lic, "topup", "system", `+${top.lifetime ? "lifetime" : top.plan} via ${topupKey}`);
+    // ----- validate -----
+    if (url.pathname === "/license/validate") {
+      if (isExpired(lic, now)) return fail("LICENSE_EXPIRED", 403);
       lic.failedAttempts = 0;
-      saveJson(FILE, map);
+      try { saveJson(FILE, map); } catch {}
       return send(res, 200, licenseResponse(lic, nonce));
     }
 
     // ----- activate -----
-    if (url.pathname === "/license/activate" && !lic.boundDeviceId) {
-      lic.boundDeviceId = deviceId;
-      if (!lic.lifetime && !lic.expiresAt && PLAN_DURATIONS[lic.plan] != null) {
-        lic.expiresAt = new Date(now + PLAN_DURATIONS[lic.plan]).toISOString();
-      }
-      if (!lic.status) lic.status = "active";
-      pushHistory(lic, "activated", "system", deviceId.slice(0, 8));
-      saveJson(FILE, map);
+    // Sudah ter-bind di device ini -> idempoten (install ulang lokal, dsb).
+    if (lic.boundDeviceId) {
+      if (isExpired(lic, now)) return fail("LICENSE_EXPIRED", 403);
+      lic.failedAttempts = 0;
+      try { saveJson(FILE, map); } catch {}
+      return send(res, 200, licenseResponse(lic, nonce));
     }
-    if (isExpired(lic, now)) return fail("LICENSE_EXPIRED", 403);
+    // Key stok basi (expiry preset sudah lewat) tidak bisa diaktivasi.
+    if (lic.expiresAt && new Date(lic.expiresAt).getTime() <= now && !lic.lifetime) {
+      return send(res, 403, { error: "LICENSE_EXPIRED" });
+    }
+    // Device sudah dicover lifetime -> tolak pembelian sia-sia.
+    for (const other of Object.values(map)) {
+      if (other !== lic && other.lifetime && !other.revoked && !other.consumed && !other.supersededBy && other.boundDeviceId === deviceId) {
+        return send(res, 403, { error: "ALREADY_LIFETIME_COVERED" });
+      }
+    }
+    // Cari key lama yang masih bersisa di device ini untuk auto-carry.
+    let carryMs = 0;
+    let carryFrom = null;
+    for (const [k, other] of Object.entries(map)) {
+      if (k === licenseKey || other.lifetime || other.revoked || other.consumed || other.supersededBy) continue;
+      if (other.boundDeviceId !== deviceId || !other.expiresAt) continue;
+      const remain = new Date(other.expiresAt).getTime() - now;
+      if (remain > carryMs) { carryMs = remain; carryFrom = k; }
+    }
+    lic.boundDeviceId = deviceId;
+    if (lic.lifetime) {
+      lic.expiresAt = null;
+    } else if (lic.expiresAt) {
+      // Stok dengan expiry preset: pakai yang paling lambat + sisa carry.
+      const preset = new Date(lic.expiresAt).getTime();
+      lic.expiresAt = new Date(Math.max(preset, now) + carryMs).toISOString();
+    } else {
+      const ms = PLAN_DURATIONS[lic.plan];
+      if (ms == null && !lic.lifetime) return fail("INVALID_LICENSE");
+      lic.expiresAt = new Date(now + (ms || 0) + carryMs).toISOString();
+    }
+    if (!lic.status) lic.status = "active";
+    // Bunuh key lama yang sisanya di-carry (sekali, anti double-count).
+    if (carryFrom) {
+      const old = map[carryFrom];
+      old.supersededBy = licenseKey;
+      old.status = "superseded";
+      pushHistory(old, "superseded", "system", `carried ${Math.round(carryMs / 86400000)}d into ${licenseKey}`);
+    }
+    pushHistory(lic, "activated", "system",
+      deviceId.slice(0, 8) + (carryMs > 0 ? ` carry+${Math.round(carryMs / 86400000)}d from ${carryFrom}` : ""));
     lic.failedAttempts = 0;
-    try { saveJson(FILE, map); } catch {}
+    saveJson(FILE, map);
     return send(res, 200, licenseResponse(lic, nonce));
   }
 

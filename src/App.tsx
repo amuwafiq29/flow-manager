@@ -111,10 +111,6 @@ export default function App() {
   const [licenseState, setLicenseState] = useState<LicenseState | null>(null)
   const [deviceId, setDeviceId] = useState("")
   const [key, setKey] = useState("")
-  const [gateTab, setGateTab] = useState<"activate" | "topup">("activate")
-  const [topupKey, setTopupKey] = useState("")
-  const [topupBusy, setTopupBusy] = useState(false)
-  const [topupError, setTopupError] = useState("")
   const [serverPlans, setServerPlans] = useState<ServerPlan[] | null>(null)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [accountsLoaded, setAccountsLoaded] = useState(false)
@@ -426,24 +422,6 @@ export default function App() {
       await invoke("expand_main_window"); await w.show(); await w.setFocus(); return
     } catch (error) { setLicenseError(typeof error === "string" ? error : "Server Unavailable") } finally { setLicenseChecking(false) }
   }
-  const topupLicense = async () => {
-    if (!topupKey.trim()) { setTopupError("Enter your new top-up key."); return }
-    setTopupBusy(true); setTopupError("")
-    try {
-      const updated = await invoke<LicenseState>("topup_license", { topupKey: topupKey.trim() })
-      setLicenseState(updated)
-      setTopupKey("")
-      const w = getCurrentWindow()
-      setLicensed(true)
-      await invoke("expand_main_window").catch(() => {})
-      await w.show().catch(() => {})
-      await w.setFocus().catch(() => {})
-    } catch (error) {
-      setTopupError(typeof error === "string" ? error : "Server Unavailable")
-    } finally {
-      setTopupBusy(false)
-    }
-  }
   const fetchPlans = async () => {
     try {
       const base = await invoke<string>("get_license_server_url")
@@ -483,8 +461,6 @@ export default function App() {
   if (!licensed) {
     const savedExpired = !!licenseState?.status && !licenseState.lifetime && !!licenseState.expires_at &&
       new Date(licenseState.expires_at).getTime() < Date.now()
-    const hasSavedKey = !!licenseState?.status && !licenseState.lifetime
-    const showTopup = gateTab === "topup" && hasSavedKey
     const exitApp = () => { void getCurrentWindow().close().catch(() => {}) }
     return (
       <div className="gate">
@@ -493,7 +469,7 @@ export default function App() {
           {savedExpired ? (
             <>
               <h1>License Expired</h1>
-              <p>Your license expired on {licenseExpiryLabel(licenseState)}. Top up to continue, buy a new one, or exit.</p>
+              <p>Your license expired on {licenseExpiryLabel(licenseState)}. Buy a new key below — remaining time (if any) on this device carries over automatically. Old keys cannot be reused.</p>
             </>
           ) : (
             <>
@@ -501,42 +477,17 @@ export default function App() {
               <p>Activate FlowManager with your license key.</p>
             </>
           )}
-          {hasSavedKey && (
-            <div className="gate-tabs" role="tablist" aria-label="License mode">
-              <button role="tab" aria-selected={gateTab === "activate"} className={gateTab === "activate" ? "tab active" : "tab"} onClick={() => setGateTab("activate")}>Aktivasi Baru</button>
-              <button role="tab" aria-selected={gateTab === "topup"} className={gateTab === "topup" ? "tab active" : "tab"} onClick={() => setGateTab("topup")}>Top-up</button>
-            </div>
-          )}
-          {showTopup ? (
-            <>
-              <p>Current key stays yours — paste the <b>new</b> top-up key. Remaining time is kept, the new key is single-use.</p>
-              <input
-                autoFocus
-                value={topupKey}
-                onChange={(e) => { setTopupKey(e.target.value); setTopupError("") }}
-                placeholder="Enter your new top-up key"
-                onKeyDown={(e) => { if (e.key === "Enter") void topupLicense() }}
-              />
-              <button className="primary wide" onClick={() => void topupLicense()} disabled={topupBusy}>
-                {topupBusy ? "Processing…" : "Top-up & Buka App →"}
-              </button>
-              {topupError && <p className="dialog-error">{topupError}</p>}
-            </>
-          ) : (
-            <>
-              <input
-                autoFocus={!hasSavedKey}
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                placeholder="Enter your license key"
-                onKeyDown={(e) => e.key === "Enter" && activateLicense()}
-              />
-              <button className="primary wide" onClick={activateLicense}>
-                {licenseChecking ? "Activating…" : "Activate FlowManager →"}
-              </button>
-              {licenseError && <p className="dialog-error">{licenseError}</p>}
-            </>
-          )}
+          <input
+            autoFocus
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="Enter your license key"
+            onKeyDown={(e) => e.key === "Enter" && activateLicense()}
+          />
+          <button className="primary wide" onClick={activateLicense}>
+            {licenseChecking ? "Activating…" : "Activate FlowManager →"}
+          </button>
+          {licenseError && <p className="dialog-error">{licenseError}</p>}
           <div className="link">
             {savedExpired ? "Need more time? " : "Don’t have a license? "}
             <a
@@ -607,8 +558,8 @@ export default function App() {
           const days = Math.max(1, Math.ceil(ms / 86400000))
           return (
             <div className="expiry-banner" role="status">
-              <span>⏳ License expires in {days} day{days === 1 ? "" : "s"} ({licenseExpiryLabel(licenseState)}).</span>
-              <button className="secondary sm" onClick={() => setView("license")}>Perpanjang</button>
+              <span>⏳ License expires in {days} day{days === 1 ? "" : "s"} ({licenseExpiryLabel(licenseState)}). Buy a new key before it ends — remaining time carries over on this device.</span>
+              <button className="secondary sm" onClick={() => setView("license")}>Buy Key</button>
             </div>
           )
         })()}
@@ -702,11 +653,6 @@ export default function App() {
             licenseState={licenseState}
             plans={serverPlans}
             onBuy={() => void openLicensePurchase()}
-            topupKey={topupKey}
-            setTopupKey={(v) => { setTopupKey(v); setTopupError("") }}
-            topupBusy={topupBusy}
-            topupError={topupError}
-            onTopup={() => void topupLicense()}
           />
         ) : view === "updates" ? (
           <UpdatesPage />
@@ -953,15 +899,10 @@ function SidebarIcon({ name }: { name: "accounts" | "favorites" | "license" | "u
   }
   return <svg className="sidebar-icon" {...common}>{paths[name]}</svg>
 }
-function LicensePage({ licenseState, plans, onBuy, topupKey, setTopupKey, topupBusy, topupError, onTopup }: {
+function LicensePage({ licenseState, plans, onBuy }: {
   licenseState: LicenseState | null
   plans: ServerPlan[] | null
   onBuy: () => void
-  topupKey: string
-  setTopupKey: (v: string) => void
-  topupBusy: boolean
-  topupError: string
-  onTopup: () => void
 }) {
   const idr = (n: number) => "Rp" + Number(n || 0).toLocaleString("id-ID")
   const visible = (plans || []).filter((p) => p.active !== false).sort((a, b) => (a.sort || 0) - (b.sort || 0))
@@ -991,21 +932,12 @@ function LicensePage({ licenseState, plans, onBuy, topupKey, setTopupKey, topupB
       </div>
       {canTopup && (
         <section className="license-info topup-section">
-          <div className="eyebrow">TOP-UP / PERPANJANG</div>
-          <h2>Extend with a new key</h2>
-          <p>Paste the new key — remaining time is kept, the new key is single-use. Your current key stays yours.</p>
-          <div className="topup-row">
-            <input
-              value={topupKey}
-              onChange={(e) => setTopupKey(e.target.value)}
-              placeholder="Enter your new top-up key"
-              onKeyDown={(e) => { if (e.key === "Enter") onTopup() }}
-            />
-            <button className="primary" onClick={onTopup} disabled={topupBusy}>
-              {topupBusy ? "Processing…" : "Top-up"}
-            </button>
-          </div>
-          {topupError && <p className="dialog-error">{topupError}</p>}
+          <div className="eyebrow">RENEWAL</div>
+          <h2>How renewal works</h2>
+          <p>Buy a new key and activate it on this device — any remaining time carries over automatically, then the old key is retired permanently. Each key is single-use.</p>
+          <button className="primary" onClick={onBuy}>
+            Buy New Key
+          </button>
         </section>
       )}
       <section className="license-info">
