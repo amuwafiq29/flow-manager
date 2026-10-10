@@ -47,7 +47,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE5MTU2NUM2MzhCODJCRDIKUldUU0s3ZzR4bVVWcVN5VHRES2kyOGhZeERQY0lxSFVBTDllQ050Nk5rVmM5dm9ndXo1S0ZzTTgK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc2ODgzMUIxODA2RUU2RDkKUldUWjVtNkFzVEdJZG9SdFJDOTYrZjErY1JPTERsb3Z0cTBzNzJVOGVvaENKc0x6dXBBS3FrYWoK",
       "endpoints": [
         "https://github.com/amuwafiq29/flow-manager/releases/latest/download/latest.json"
       ],
