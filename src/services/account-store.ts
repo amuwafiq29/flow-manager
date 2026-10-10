@@ -1,4 +1,4 @@
-export type ProviderId = "google" | "dola" | "migoo" | "chatgpt" | "minimax" | "leonardo" | "custom"
+export type ProviderId = "google" | "dola" | "migoo" | "chatgpt" | "minimax" | "leonardo" | "facebook" | "custom"
 
 export type StoredAccount = {
   id: string
@@ -15,7 +15,7 @@ export type StoredAccount = {
 const STORAGE_KEY = "flowmanager-accounts"
 const LEGACY_STORAGE_KEY = "flowpilot-accounts"
 
-const KNOWN_PROVIDERS: ProviderId[] = ["google", "dola", "migoo", "chatgpt", "minimax", "leonardo", "custom"]
+const KNOWN_PROVIDERS: ProviderId[] = ["google", "dola", "migoo", "chatgpt", "minimax", "leonardo", "facebook", "custom"]
 
 function normalizeProvider(value: unknown): ProviderId {
   return typeof value === "string" && (KNOWN_PROVIDERS as string[]).includes(value)

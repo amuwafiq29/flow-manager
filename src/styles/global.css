@@ -185,6 +185,15 @@ aside .side-label{padding:14px 14px 5px}
 /* List pindah akun di sidebar (mode flow): area HTML murni yang tidak
    pernah tertutup webview native — pengganti dropdown di bar. */
 .side-accounts{display:flex;flex-direction:column;gap:6px;overflow-y:auto;min-height:0;max-height:38vh;padding-right:2px}
+/* Mode flow: sidebar fokus ke account switcher — Workspace/General di-hide,
+   list akun mengisi seluruh tinggi sidebar. */
+aside.flow-sidebar{max-height:calc(100vh - 36px);position:sticky;top:18px}
+aside.flow-sidebar .side-accounts{flex:1;max-height:none;min-height:120px}
+.side-back{justify-content:flex-start;font-weight:800;color:var(--fm-blue);background:var(--hover);border:1px solid var(--line-blue)}
+.side-back:hover{background:var(--sel-bg);box-shadow:none}
+.side-label-count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;margin-left:8px;padding:0 7px;border-radius:999px;background:var(--hover);border:1px solid var(--line-blue);color:var(--fm-blue);font-size:10px;letter-spacing:0;vertical-align:1px}
+.side-bottom.compact{padding:12px 6px 2px}
+.side-bottom.compact small{display:flex;flex-direction:column;gap:2px}
 /* Kategori provider: header sticky + sub-akun bisa di-collapse. */
 .side-cat{display:flex;flex-direction:column;gap:2px}
 .side-cat-header{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border-radius:10px;background:var(--bg-soft);border:1px solid var(--border);color:var(--text);font-size:11px;font-weight:800;letter-spacing:.02em;position:sticky;top:0;z-index:2;transition:.15s}
@@ -195,13 +204,31 @@ aside .side-label{padding:14px 14px 5px}
 .side-cat-chevron{font-size:10px;color:var(--faint);flex:none;transition:transform .18s}
 .side-cat-chevron.closed{transform:rotate(-90deg)}
 .side-account.nested{margin-left:14px;width:calc(100% - 14px);border-left:2px solid var(--border);border-radius:0 11px 11px 0}
-.side-account{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:11px;background:transparent;color:var(--ink-2);font-size:12px;font-weight:600;text-align:left;transition:.15s}
-.side-account img{width:26px;height:26px;flex:none;border-radius:50%;object-fit:cover}
+.side-account{position:relative;display:flex;align-items:center;gap:4px;width:100%;padding:4px 4px 4px 6px;border-radius:11px;background:transparent;color:var(--ink-2);font-size:12px;font-weight:600;text-align:left;transition:.15s}
+.side-account-main{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:transparent;border-radius:8px;padding:4px;color:inherit;font-size:inherit;font-weight:inherit;text-align:left}
+.side-account-main:hover{background:transparent;box-shadow:none;color:inherit}
+.side-account-main img{width:26px;height:26px;flex:none;border-radius:50%;object-fit:cover}
 .side-account-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side-account-fav{color:#f59e0b;font-size:12px;flex:none}
 .side-account:hover{background:var(--hover);color:var(--text)}
 .side-account.selected{background:var(--fm-grad);color:#fff;box-shadow:0 6px 14px rgba(37,99,235,.3)}
 .side-account.selected .side-account-fav{color:#fff}
+/* Tombol X: tutup sesi (kill webview, hemat RAM). Muncul saat hover / baris aktif. */
+.session-close{flex:none;width:24px;height:24px;border-radius:8px;display:grid;place-items:center;background:transparent;color:var(--faint);font-size:15px;line-height:1;opacity:0;transition:.15s;padding:0}
+.side-account:hover .session-close,.side-account:focus-within .session-close,.side-account.selected .session-close{opacity:1}
+.session-close:hover{background:rgba(239,68,68,.16);color:#ef4444}
+.side-account.selected .session-close{color:rgba(255,255,255,.9)}
+.side-account.selected .session-close:hover{background:rgba(255,255,255,.22);color:#fff}
+/* Link hemat RAM: tutup semua sesi sekaligus. */
+.side-close-all{justify-content:center;font-size:11px;font-weight:700;color:var(--muted);padding:8px 10px;border-radius:10px}
+.side-close-all:hover{background:rgba(239,68,68,.08);color:#ef4444;box-shadow:none}
+/* Switcher kosong: belum ada sesi berjalan. */
+.side-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 10px;text-align:center}
+.side-empty p{margin:0;font-size:12px;color:var(--faint)}
+.side-empty .secondary.sm,.secondary.sm{height:34px;font-size:12px}
+/* Titik hijau: akun sedang berjalan (ada di switcher). */
+.session-dot{display:inline-block;margin-left:7px;font-size:10px;color:#22c55e;vertical-align:2px;animation:session-pulse 1.6s ease-in-out infinite}
+@keyframes session-pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
 /* Chip akun aktif di flow-bar (statis, bukan dropdown). */
 .current-account{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:7px 10px;font-size:11px;font-weight:700;color:var(--text);box-shadow:0 2px 10px rgba(15,23,42,.06);cursor:default}
@@ -256,10 +283,12 @@ aside .side-label{padding:14px 14px 5px}
 .provider-chatgpt{background:#e8f5e9;color:#1b5e20;border-color:#a5d6a7}
 .provider-minimax{background:#fff3e0;color:#e65100;border-color:#ffcc80}
 .provider-leonardo{background:#ede9fe;color:#5b21b6;border-color:#c4b5fd}
+.provider-facebook{background:#e7f0fe;color:#0866ff;border-color:#b9d2fb}
 .provider-custom{background:#f1f5f9;color:#475569;border-color:#cbd5e1}
 [data-theme="dark"] .provider-chatgpt{background:#12341f;color:#86efac;border-color:#1f5c33}
 [data-theme="dark"] .provider-minimax{background:#3d2200;color:#fdba74;border-color:#7c3f0c}
 [data-theme="dark"] .provider-leonardo{background:#2a1b5e;color:#c4b5fd;border-color:#4c3a8f}
+[data-theme="dark"] .provider-facebook{background:#0f2c5e;color:#7aa8ff;border-color:#274b8f}
 [data-theme="dark"] .provider-custom{background:#1e293b;color:#94a3b8;border-color:#334155}
 .filter-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .chip{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:999px;background:var(--card);border:1.5px solid var(--border);color:var(--ink-2);font-size:12px;font-weight:700;transition:.18s}

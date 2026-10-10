@@ -13,6 +13,7 @@ use tauri::{AppHandle, Manager, Runtime, WebviewUrl};
 //   chatgpt  -> ChatGPT      (https://chatgpt.com/)
 //   minimax  -> Hailuo AI    (https://hailuoai.video/)
 //   leonardo -> Leonardo AI  (https://app.leonardo.ai/)
+//   facebook -> Facebook     (https://www.facebook.com/)
 //   custom   -> URL bebas dari user (https, divalidasi)
 const PROVIDER_GOOGLE: &str = "google";
 const PROVIDER_DOLA: &str = "dola";
@@ -20,6 +21,7 @@ const PROVIDER_MIGOO: &str = "migoo";
 const PROVIDER_CHATGPT: &str = "chatgpt";
 const PROVIDER_MINIMAX: &str = "minimax";
 const PROVIDER_LEONARDO: &str = "leonardo";
+const PROVIDER_FACEBOOK: &str = "facebook";
 const PROVIDER_CUSTOM: &str = "custom";
 
 const GOOGLE_FLOW_URL: &str = "https://flow.google.com/";
@@ -28,6 +30,7 @@ const MIGOO_URL: &str = "https://migoo.ai/";
 const CHATGPT_URL: &str = "https://chatgpt.com/";
 const MINIMAX_URL: &str = "https://hailuoai.video/";
 const LEONARDO_URL: &str = "https://app.leonardo.ai/";
+const FACEBOOK_URL: &str = "https://www.facebook.com/";
 
 const MAX_CACHED_WEBVIEWS: usize = 10;
 
@@ -59,7 +62,7 @@ impl Default for WebviewManager {
 
 /// Normalisasi input provider dari frontend.
 /// Menerima "google" | "google-flow" | "dola" | "migoo" | "chatgpt" |
-/// "minimax" | "leonardo" | "custom" (case-insensitive).
+/// "minimax" | "leonardo" | "facebook" | "custom" (case-insensitive).
 /// Default: "google" agar akun lama tanpa provider tetap jalan.
 fn normalize_provider(raw: Option<String>) -> String {
     let lower = raw.unwrap_or_default().to_lowercase();
@@ -74,6 +77,8 @@ fn normalize_provider(raw: Option<String>) -> String {
         PROVIDER_MINIMAX.to_string()
     } else if trimmed == PROVIDER_LEONARDO || trimmed == "leonardo.ai" || trimmed == "app.leonardo.ai" {
         PROVIDER_LEONARDO.to_string()
+    } else if trimmed == PROVIDER_FACEBOOK || trimmed == "facebook.com" || trimmed == "www.facebook.com" || trimmed == "fb.com" {
+        PROVIDER_FACEBOOK.to_string()
     } else if trimmed == PROVIDER_CUSTOM {
         PROVIDER_CUSTOM.to_string()
     } else {
@@ -89,6 +94,7 @@ fn label_prefix(provider: &str) -> &str {
         PROVIDER_CHATGPT => "chatgpt",
         PROVIDER_MINIMAX => "minimax",
         PROVIDER_LEONARDO => "leonardo",
+        PROVIDER_FACEBOOK => "facebook",
         PROVIDER_CUSTOM => "custom",
         _ => "google-flow",
     }
@@ -101,6 +107,7 @@ fn provider_url(provider: &str) -> &str {
         PROVIDER_CHATGPT => CHATGPT_URL,
         PROVIDER_MINIMAX => MINIMAX_URL,
         PROVIDER_LEONARDO => LEONARDO_URL,
+        PROVIDER_FACEBOOK => FACEBOOK_URL,
         _ => GOOGLE_FLOW_URL,
     }
 }
@@ -510,8 +517,55 @@ pub fn close<R: Runtime>(
     Ok(())
 }
 
-pub fn resize<R: Runtime>(
+/// Hancurkan webview satu akun untuk membebaskan RAM (tombol X di switcher).
+/// Profil login di disk TIDAK dihapus -> buka ulang tetap login.
+/// Panel extension akun tersebut ikut dihancurkan.
+pub fn destroy<R: Runtime>(
     app: &AppHandle<R>,
+    account_id: String,
+    provider: Option<String>,
+) -> Result<(), String> {
+    validate_account_id(&account_id)?;
+    let provider = normalize_provider(provider);
+    let state = app.state::<WebviewManager>();
+    let _operation = state
+        .operation
+        .lock()
+        .map_err(|_| "webview state unavailable")?;
+    let label = webview_label(&provider, &account_id);
+    let panel = ext_panel_label(&provider, &account_id);
+    #[cfg(debug_assertions)]
+    eprintln!("[fm-debug] destroy labels {label} + {panel}");
+    for target in [&label, &panel] {
+        if let Some(webview) = app.get_webview(target) {
+            webview.close().map_err(|e| e.to_string())?;
+        }
+    }
+    {
+        let mut cached = state
+            .cached_labels
+            .lock()
+            .map_err(|_| "webview state unavailable")?;
+        cached.remove(&label);
+        cached.remove(&panel);
+    }
+    {
+        let mut active = state
+            .active_label
+            .lock()
+            .map_err(|_| "webview state unavailable")?;
+        if active.as_deref() == Some(label.as_str()) {
+            *active = None;
+            *state
+                .visible
+                .lock()
+                .map_err(|_| "webview state unavailable")? = false;
+        }
+    }
+    Ok(())
+}
+
+pub fn resize<R: Runtime>(    app: &AppHandle<R>,
     account_id: String,
     provider: Option<String>,
     x: f64,
@@ -730,7 +784,7 @@ pub fn close_ext_panel<R: Runtime>(
             }
         }
         (Some(id), None) => {
-            for prefix in ["google-flow", "dola", "migoo", "chatgpt", "minimax", "leonardo", "custom"] {
+            for prefix in ["google-flow", "dola", "migoo", "chatgpt", "minimax", "leonardo", "facebook", "custom"] {
                 let candidate = format!("extpanel-{prefix}-{id}");
                 if let Some(wv) = app.get_webview(&candidate) {
                     wv.hide().map_err(|e| e.to_string())?;

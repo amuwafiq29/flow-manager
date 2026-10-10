@@ -58,6 +58,19 @@ async fn close_google_flow(
 }
 
 #[tauri::command]
+async fn destroy_account_webview(
+    app: tauri::AppHandle,
+    account_id: String,
+    provider: Option<String>,
+) -> Result<(), String> {
+    let operation_app = app.clone();
+    run_on_ui_thread(&app, move || {
+        webview_manager::destroy(&operation_app, account_id, provider)
+    })
+    .await
+}
+
+#[tauri::command]
 async fn resize_google_flow(
     app: tauri::AppHandle,
     account_id: String,
@@ -188,6 +201,7 @@ pub fn run() {
             open_external_url,
             open_google_flow,
             close_google_flow,
+            destroy_account_webview,
             resize_google_flow,
             remove_google_flow_account,
             open_ext_panel,

@@ -8,7 +8,7 @@ import { check, type Update } from "@tauri-apps/plugin-updater"
 import packageJson from "../package.json"
 import { loadAccounts, saveAccounts } from "./services/account-store"
 
-type ProviderId = "google" | "dola" | "migoo" | "chatgpt" | "minimax" | "leonardo" | "custom"
+type ProviderId = "google" | "dola" | "migoo" | "chatgpt" | "minimax" | "leonardo" | "facebook" | "custom"
 type Account = {
   id: string
   name: string
@@ -22,7 +22,7 @@ type Account = {
   lastOpenedAt?: number | null
 }
 // Provider metadata: Google Flow, Dola, Migoo + ChatGPT, Hailuo (Minimax),
-// Leonardo AI, dan situs custom milik user.
+// Leonardo AI, Facebook, dan situs custom milik user.
 const PROVIDERS: Record<ProviderId, { name: string; short: string; url: string; avatar: string; openLabel: string; loadingLabel: string }> = {
   google: { name: "Google Flow", short: "Google", url: "https://flow.google.com/", avatar: "/google-flow.png", openLabel: "Open Google Flow", loadingLabel: "Loading Google Flow..." },
   dola: { name: "Dola", short: "Dola", url: "https://www.dola.com/chat/", avatar: "/dola.png", openLabel: "Open Dola", loadingLabel: "Loading Dola..." },
@@ -30,9 +30,10 @@ const PROVIDERS: Record<ProviderId, { name: string; short: string; url: string; 
   chatgpt: { name: "ChatGPT", short: "ChatGPT", url: "https://chatgpt.com/", avatar: "/chatgpt.svg", openLabel: "Open ChatGPT", loadingLabel: "Loading ChatGPT..." },
   minimax: { name: "Hailuo (Minimax)", short: "Minimax", url: "https://hailuoai.video/", avatar: "/minimax.png", openLabel: "Open Hailuo", loadingLabel: "Loading Hailuo..." },
   leonardo: { name: "Leonardo AI", short: "Leonardo", url: "https://app.leonardo.ai/", avatar: "/leonardo.png", openLabel: "Open Leonardo", loadingLabel: "Loading Leonardo..." },
+  facebook: { name: "Facebook", short: "Facebook", url: "https://www.facebook.com/", avatar: "/facebook.svg", openLabel: "Open Facebook", loadingLabel: "Loading Facebook..." },
   custom: { name: "Custom Site", short: "Custom", url: "", avatar: "/custom.svg", openLabel: "Open Site", loadingLabel: "Loading site..." },
 }
-const PROVIDER_IDS: ProviderId[] = ["google", "dola", "migoo", "chatgpt", "minimax", "leonardo", "custom"]
+const PROVIDER_IDS: ProviderId[] = ["google", "dola", "migoo", "chatgpt", "minimax", "leonardo", "facebook", "custom"]
 const normalizeProvider = (value: unknown): ProviderId =>
   (PROVIDER_IDS as string[]).includes(value as string) ? (value as ProviderId) : "google"
 const providerMeta = (id: unknown) => PROVIDERS[normalizeProvider(id)]
@@ -118,6 +119,9 @@ export default function App() {
   const [serverPlans, setServerPlans] = useState<ServerPlan[] | null>(null)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [accountsLoaded, setAccountsLoaded] = useState(false)
+  // Sesi berjalan (live tabs): hanya akun yang sudah dibuka dari halaman utama.
+  // Sengaja TIDAK disimpan ke localStorage — restart app = sesi bersih (hemat RAM).
+  const [openIds, setOpenIds] = useState<string[]>([])
   const [profile, setProfile] = useState<{
     name: string
     avatar: string | null
@@ -213,6 +217,7 @@ export default function App() {
         provider: removing.provider,
       })
       setAccounts((current) => current.filter((account) => account.id !== removing.id))
+      setOpenIds((current) => current.filter((id) => id !== removing.id))
       if (active?.id === removing.id) {
         setActive(null)
         setFullView(false)
@@ -229,6 +234,56 @@ export default function App() {
       accounts.map((x) => (x.id === a.id ? { ...x, favorite: !x.favorite } : x))
     )
     setMenu(null)
+  }
+  // Buka akun dari halaman utama -> daftarkan sebagai sesi berjalan, lalu ke flow view.
+  const openAccount = (a: Account) => {
+    const now = Date.now()
+    setAccounts((current) =>
+      current.map((x) => (x.id === a.id ? { ...x, lastOpenedAt: now } : x))
+    )
+    setOpenIds((current) => (current.includes(a.id) ? current : [...current, a.id]))
+    setActive({ ...a, lastOpenedAt: now })
+    setView("flow")
+  }
+  // Tutup sesi (tombol X di switcher): hancurkan webview untuk bebaskan RAM.
+  // Login TIDAK hilang — profil tersimpan di disk, buka ulang tetap login.
+  const closeSession = (id: string) => {
+    const target = accounts.find((x) => x.id === id)
+    if (target) {
+      void invoke("destroy_account_webview", { accountId: target.id, provider: target.provider }).catch(() => {})
+    }
+    const remaining = openIds.filter((x) => x !== id)
+    setOpenIds(remaining)
+    if (active?.id !== id) return
+    const next = remaining
+      .map((sid) => accounts.find((x) => x.id === sid))
+      .filter((x): x is Account => !!x)
+      .sort((x, y) => (y.lastOpenedAt || 0) - (x.lastOpenedAt || 0) || x.order - y.order)[0]
+    if (next) {
+      const now = Date.now()
+      setAccounts((current) =>
+        current.map((x) => (x.id === next.id ? { ...x, lastOpenedAt: now } : x))
+      )
+      setActive({ ...next, lastOpenedAt: now })
+    } else {
+      if (target) void invoke("close_google_flow", { accountId: target.id, provider: target.provider }).catch(() => {})
+      else void invoke("close_google_flow").catch(() => {})
+      setActive(null)
+      setFullView(false)
+      setView("accounts")
+    }
+  }
+  // Tutup semua sesi sekaligus (hemat RAM maksimal) lalu kembali ke halaman utama.
+  const closeAllSessions = () => {
+    for (const id of openIds) {
+      const target = accounts.find((x) => x.id === id)
+      if (target) void invoke("destroy_account_webview", { accountId: target.id, provider: target.provider }).catch(() => {})
+    }
+    setOpenIds([])
+    void invoke("close_google_flow").catch(() => {})
+    setActive(null)
+    setFullView(false)
+    setView("accounts")
   }
   const handleAddAccount = () => {
     setNewAccountName("")
@@ -543,15 +598,11 @@ export default function App() {
             licenseState={licenseState}
             accounts={accounts}
             activeAccountId={active.id}
+            openIds={openIds}
+            onCloseSession={closeSession}
+            onCloseAllSessions={closeAllSessions}
             onSelectAccount={(account) => {
-              if (account.id !== active.id) {
-                // Catat waktu buka: akun naik ke puncak kategorinya di switcher.
-                const now = Date.now()
-                setAccounts((current) =>
-                  current.map((x) => (x.id === account.id ? { ...x, lastOpenedAt: now } : x))
-                )
-                setActive({ ...account, lastOpenedAt: now })
-              }
+              if (account.id !== active.id) openAccount(account)
             }}
           />
         )}
@@ -628,7 +679,7 @@ export default function App() {
               <div className="account-count">
                 {accounts.length}{" "}
                 {accounts.length === 1 ? "Account" : "Accounts"}
-                {"  ·  "}{providerCount("google")} Google  ·  {providerCount("dola")} Dola  ·  {providerCount("migoo")} Migoo  ·  {providerCount("chatgpt")} ChatGPT  ·  {providerCount("minimax")} Minimax  ·  {providerCount("leonardo")} Leonardo  ·  {providerCount("custom")} Custom
+                {"  ·  "}{providerCount("google")} Google  ·  {providerCount("dola")} Dola  ·  {providerCount("migoo")} Migoo  ·  {providerCount("chatgpt")} ChatGPT  ·  {providerCount("minimax")} Minimax  ·  {providerCount("leonardo")} Leonardo  ·  {providerCount("facebook")} Facebook  ·  {providerCount("custom")} Custom
               </div>
             )}
             {(view === "accounts" || view === "favorites") && (
@@ -695,16 +746,10 @@ export default function App() {
                 <Card
                   key={a.id}
                   a={a}
+                  sessionOpen={openIds.includes(a.id)}
                   menuOpen={menu === a.id}
                   onMenu={() => setMenu(menu === a.id ? null : a.id)}
-                  onOpen={() => {
-                    const now = Date.now()
-                    setAccounts((current) =>
-                      current.map((x) => (x.id === a.id ? { ...x, lastOpenedAt: now } : x))
-                    )
-                    setActive({ ...a, lastOpenedAt: now })
-                    setView("flow")
-                  }}
+                  onOpen={() => openAccount(a)}
                   onFavorite={() => handleToggleFavorite(a)}
                   onDelete={() => handleDelete(a)}
                   onRename={() => handleRename(a)}
@@ -827,6 +872,9 @@ function Sidebar({
   accounts,
   activeAccountId,
   onSelectAccount,
+  openIds,
+  onCloseSession,
+  onCloseAllSessions,
 }: {
   view: string
   setView: (v: any) => void
@@ -835,6 +883,9 @@ function Sidebar({
   accounts?: Account[]
   activeAccountId?: string | null
   onSelectAccount?: (a: Account) => void
+  openIds?: string[]
+  onCloseSession?: (id: string) => void
+  onCloseAllSessions?: () => void
 }) {
   const inFlow = view === "flow" && accounts && onSelectAccount
   const [collapsedCats, setCollapsedCats] = useState<Record<string, boolean>>(() => {
@@ -853,23 +904,45 @@ function Sidebar({
       return next
     })
   }
-  // Kategori urutan tetap (PROVIDER_IDS); hanya yang berisi akun yang tampil.
+  // Kategori urutan tetap (PROVIDER_IDS); hanya SESI BERJALAN yang tampil
+  // (akun yang sudah dibuka, belum di-X) — bukan semua akun.
   // Dalam kategori: terakhir dibuka paling atas.
+  const openSet = inFlow ? new Set(openIds || []) : null
   const grouped = inFlow
     ? PROVIDER_IDS.map((pid) => ({
         pid,
         items: (accounts as Account[])
-          .filter((a) => normalizeProvider(a.provider) === pid)
+          .filter((a) => openSet?.has(a.id) && normalizeProvider(a.provider) === pid)
           .sort((x, y) => (y.lastOpenedAt || 0) - (x.lastOpenedAt || 0) || x.order - y.order),
       })).filter((g) => g.items.length > 0)
     : []
   return (
-    <aside>
+    <aside className={inFlow ? "flow-sidebar" : ""}>
       <Brand />
       {inFlow ? (
         <>
-          <div className="side-label">ACCOUNTS</div>
+          <button
+            className="side-back"
+            onClick={() => setView("accounts")}
+            title="Kembali ke halaman utama (sesi tetap berjalan)"
+          >
+            ‹ All Accounts
+          </button>
+          <div className="side-label" title="Hanya akun yang sedang berjalan — tutup dengan × untuk hemat RAM">
+            OPEN ACCOUNTS
+            <span className="side-label-count">
+              {openIds?.length || 0}
+            </span>
+          </div>
           <div className="side-accounts" role="listbox" aria-label="Switch account">
+            {grouped.length === 0 && (
+              <div className="side-empty">
+                <p>No running accounts.</p>
+                <button className="secondary sm" onClick={() => setView("accounts")}>
+                  Open an account
+                </button>
+              </div>
+            )}
             {grouped.map((g) => {
               const meta = PROVIDERS[g.pid]
               const collapsed = !!collapsedCats[g.pid]
@@ -888,27 +961,68 @@ function Sidebar({
                   </button>
                   {!collapsed &&
                     g.items.map((a) => (
-                      <button
+                      <div
                         key={a.id}
                         role="option"
                         aria-selected={a.id === activeAccountId}
                         className={a.id === activeAccountId ? "side-account nested selected" : "side-account nested"}
-                        onClick={() => (onSelectAccount as (a: Account) => void)(a)}
                         title={`Open ${a.name} (${badgeFor(a)})`}
                       >
-                        <img src={avatarFor(a)} alt="" />
-                        <span className="side-account-name">{a.name}</span>
-                        {a.favorite && <span className="side-account-fav">★</span>}
-                      </button>
+                        <button
+                          className="side-account-main"
+                          onClick={() => (onSelectAccount as (a: Account) => void)(a)}
+                          tabIndex={0}
+                        >
+                          <img src={avatarFor(a)} alt="" />
+                          <span className="side-account-name">{a.name}</span>
+                          {a.favorite && <span className="side-account-fav">★</span>}
+                        </button>
+                        <button
+                          className="session-close"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onCloseSession?.(a.id)
+                          }}
+                          title={`Close ${a.name} — bebaskan RAM (tetap login)`}
+                          aria-label={`Close ${a.name}`}
+                        >
+                          ×
+                        </button>
+                      </div>
                     ))}
                 </div>
               )
             })}
           </div>
-          <div className="rule" />
+          {(openIds?.length || 0) > 1 && (
+            <button
+              className="side-close-all"
+              onClick={() => onCloseAllSessions?.()}
+              title="Tutup semua sesi sekaligus untuk hemat RAM maksimal"
+            >
+              Close all sessions
+            </button>
+          )}
+          <div className="side-bottom compact">
+            <div className="avatar">
+              {profile.avatar ? (
+                <img src={profile.avatar} alt="FlowManager profile" />
+              ) : (
+                "YK"
+              )}
+            </div>
+            <div>
+              <div className="side-license-info">
+                <small>
+                  <span>License {licenseState ? licenseStatusLabel(licenseState.status) : "Unavailable"}: <b>{licenseState ? licensePlanLabel(licenseState.plan) : "—"}</b></span>
+                </small>
+              </div>
+            </div>
+          </div>
         </>
-      ) : null}
-      <div className="side-label">WORKSPACE</div>
+      ) : (
+        <>
+          <div className="side-label">WORKSPACE</div>
       <button
         className={view === "accounts" ? "active" : ""}
         onClick={() => setView("accounts")}
@@ -964,6 +1078,8 @@ function Sidebar({
           </div>
         </div>
       </div>
+        </>
+      )}
     </aside>
   )
 }
@@ -1176,7 +1292,7 @@ function InfoPage() {
     ],
     [
       "Pick a Provider",
-      "Click + Add Account, pick Google Flow, Dola, Migoo, ChatGPT, Hailuo, Leonardo, or a custom site, then name the account.",
+      "Click + Add Account, pick Google Flow, Dola, Migoo, ChatGPT, Hailuo, Leonardo, Facebook, or a custom site, then name the account.",
     ],
     [
       "Sign In to the Provider",
@@ -1184,11 +1300,11 @@ function InfoPage() {
     ],
     [
       "Manage Your Accounts",
-      "Use Account Cards to open, rename, favorite, remove, and reorder accounts. Use the All / Google / Dola / Migoo chips to filter.",
+      "Use Account Cards to open, rename, favorite, remove, and reorder accounts. Use the provider chips to filter.",
     ],
     [
       "Open an Account",
-      "Click Open Google Flow, Open Dola, or Open Migoo to open the selected account. Each provider keeps its own separate login session.",
+      "Click the Open button on a card to open the selected account. Each provider keeps its own separate login session.",
     ],
     [
       "Switch Between Accounts",
@@ -1219,7 +1335,7 @@ function InfoPage() {
           <div>
             <h3>Provider Login Stays in the Provider</h3>
             <p>
-              Your Google, Dola, or Migoo login is handled directly inside the
+              Your provider login is handled directly inside the
               provider page. FlowManager does not ask you to enter your
               provider password into FlowManager.
             </p>
@@ -1277,13 +1393,14 @@ function AddAccountCard({ onAdd }: { onAdd: () => void }) {
     <button className="add-card" onClick={onAdd}>
       <span>＋</span>
       <b>Add Account</b>
-      <small>Add a Google Flow, Dola, Migoo, ChatGPT, Hailuo, Leonardo, or custom account</small>
+      <small>Add a Google Flow, Dola, Migoo, ChatGPT, Hailuo, Leonardo, Facebook, or custom account</small>
     </button>
   )
 }
 
 function Card({
   a,
+  sessionOpen,
   menuOpen,
   onMenu,
   onOpen,
@@ -1296,6 +1413,7 @@ function Card({
   onPointerDown,
 }: {
   a: Account
+  sessionOpen: boolean
   menuOpen: boolean
   onMenu: () => void
   onOpen: () => void
@@ -1345,10 +1463,17 @@ function Card({
           }}
         />
       </div>
-      <h2>{a.name}</h2>
+      <h2>
+        {a.name}
+        {sessionOpen && (
+          <span className="session-dot" title="Running — klik Open untuk pindah ke sesi ini">
+            ●
+          </span>
+        )}
+      </h2>
       <span className={`provider-badge provider-${normalizeProvider(a.provider)}`}>{badgeFor(a)}</span>
       <button className="primary wide" onClick={onOpen}>
-        {providerMeta(a.provider).openLabel} <span>→</span>
+        {sessionOpen ? `Switch to ${displayProviderName(a)}` : providerMeta(a.provider).openLabel} <span>→</span>
       </button>
       <div className="card-links">
         <button onClick={onRename}>✎ Rename</button>
