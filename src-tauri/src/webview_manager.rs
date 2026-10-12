@@ -565,6 +565,36 @@ pub fn destroy<R: Runtime>(
     Ok(())
 }
 
+/// Navigasi histori webview satu akun: "back" | "forward" | "reload".
+/// Back/forward tidak ada API native di wry -> pakai eval window.history.
+/// Reload pakai API native. Login & sesi tidak terganggu.
+pub fn history_nav<R: Runtime>(
+    app: &AppHandle<R>,
+    account_id: String,
+    provider: Option<String>,
+    action: String,
+) -> Result<(), String> {
+    validate_account_id(&account_id)?;
+    let provider = normalize_provider(provider);
+    let state = app.state::<WebviewManager>();
+    let _operation = state
+        .operation
+        .lock()
+        .map_err(|_| "webview state unavailable")?;
+    let label = webview_label(&provider, &account_id);
+    let webview = app
+        .get_webview(&label)
+        .ok_or_else(|| "account webview is not open".to_string())?;
+    match action.trim().to_lowercase().as_str() {
+        "back" => webview.eval("window.history.back()").map_err(|e| e.to_string()),
+        "forward" => webview
+            .eval("window.history.forward()")
+            .map_err(|e| e.to_string()),
+        "reload" => webview.reload().map_err(|e| e.to_string()),
+        _ => Err("unknown navigation action".to_string()),
+    }
+}
+
 pub fn resize<R: Runtime>(    app: &AppHandle<R>,
     account_id: String,
     provider: Option<String>,

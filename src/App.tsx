@@ -1730,10 +1730,22 @@ function FlowShell({
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [fullView, onToggleFullView])
+  const navHistory = (action: "back" | "forward" | "reload") => {
+    invoke("webview_history", {
+      accountId: account.id,
+      provider: account.provider,
+      action,
+    }).catch(() => {})
+  }
   return (
     <div className={`flow-shell ${panelOpen ? "panel-open" : ""}`}>
       <div className="flow-bar">
         <button className="back" onClick={onBack}>‹ Accounts</button>
+        <div className="nav-group" role="toolbar" aria-label="WebView navigation">
+          <button className="navbtn" title="Back — halaman sebelumnya" aria-label="Back" onClick={() => void navHistory("back")}>←</button>
+          <button className="navbtn" title="Forward — halaman berikutnya" aria-label="Forward" onClick={() => void navHistory("forward")}>→</button>
+          <button className="navbtn" title="Reload halaman ini" aria-label="Reload" onClick={() => void navHistory("reload")}>↻</button>
+        </div>
         <span>{status}</span>
         <div className="flow-controls">
           {normalizeProvider(account.provider) === "google" && (
